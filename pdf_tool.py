@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, simpledialog
-import os, json, tempfile
+import os, json, tempfile, threading, queue
 from pathlib import Path
 from datetime import datetime
 import fitz
@@ -176,6 +176,9 @@ class ProgressDlg:
         else: self.pb.step()
         self.lbl.config(text="%d / %d" % (self.pb["value"], self.pb["maximum"]))
         self.top.update()
+        for w in self.top.winfo_children():
+            try: w.update()
+            except: pass
 
     def close(self): self.top.destroy()
 
@@ -352,6 +355,8 @@ class MergeUI:
         self.files = []
         self.var_pw = tk.StringVar()
         self.var_compress = tk.BooleanVar(value=True)
+        self._task_queue = queue.Queue()
+        self._progress = None
         self._build()
 
     def _build(self):
@@ -465,49 +470,77 @@ class MergeUI:
         pw = self.var_pw.get().strip()
         comp = self.var_compress.get()
         alt = self.alt_var.get()
+        self._progress = None
+        self._merge_cancel = False
+        d = {"out": out, "pw": pw, "comp": comp, "alt": alt,
+             "files": list(self.files)}
+        threading.Thread(target=self._merge_worker, args=(d,), daemon=True).start()
+        self._poll_merge_queue()
+
+    def _poll_merge_queue(self):
         try:
-            if alt:
+            while True:
+                cmd, data = self._task_queue.get_nowait()
+                if cmd == "progress_init":
+                    title, mx = data
+                    self._progress = ProgressDlg(self.parent, title, mx)
+                elif cmd == "progress":
+                    self._progress.step(data)
+                elif cmd == "progress_close":
+                    if self._progress: self._progress.close(); self._progress = None
+                elif cmd == "done":
+                    out = data
+                    messagebox.showinfo("Success", "Merged into:\n%s" % out)
+                    try: os.startfile(os.path.dirname(os.path.abspath(out)))
+                    except: pass
+                elif cmd == "error":
+                    messagebox.showerror("Error", "Merge failed:\n%s" % data)
+        except queue.Empty:
+            pass
+        self.parent.after(200, self._poll_merge_queue)
+
+    def _merge_worker(self, d):
+        q = self._task_queue
+        try:
+            if d["alt"]:
                 pages_by_file = []
-                for f in self.files:
+                for f in d["files"]:
                     src = fitz.open(f["path"])
                     if src.is_encrypted:
-                        messagebox.showerror("Error", "Cannot merge encrypted PDF:\n%s" % f["path"])
+                        q.put(("error", "Cannot merge encrypted:\n%s" % f["path"]))
                         src.close(); return
                     pgs = parse_page_range(f["pages"], len(src))
                     pages_by_file.append((src, pgs))
                 max_pgs = max(len(p[1]) for p in pages_by_file) if pages_by_file else 0
                 writer = fitz.open()
-                progress = ProgressDlg(self.parent, "Merging (alternate)...", max_pgs * len(pages_by_file))
+                q.put(("progress_init", ("Merging (alternate)...", max_pgs * len(pages_by_file))))
                 cnt = 0
                 for i in range(max_pgs):
                     for src, pgs in pages_by_file:
                         if i < len(pgs):
                             writer.insert_pdf(src, from_page=pgs[i] - 1, to_page=pgs[i] - 1)
-                            cnt += 1
-                            progress.step(cnt)
+                            cnt += 1; q.put(("progress", cnt))
                 for src, _ in pages_by_file: src.close()
-                progress.close()
-                safe_save(writer, out, comp, pw)
-                writer.close()
+                q.put(("progress_close", None))
+                safe_save(writer, d["out"], d["comp"], d["pw"]); writer.close()
             else:
                 writer = fitz.open()
-                progress = ProgressDlg(self.parent, "Merging...", len(self.files))
-                for idx, f in enumerate(self.files):
+                q.put(("progress_init", ("Merging...", len(d["files"]))))
+                for idx, f in enumerate(d["files"]):
                     src = fitz.open(f["path"])
                     if src.is_encrypted:
-                        messagebox.showerror("Error", "Cannot merge encrypted PDF:\n%s" % f["path"])
-                        src.close(); writer.close(); progress.close(); return
+                        q.put(("error", "Cannot merge encrypted:\n%s" % f["path"]))
+                        src.close(); writer.close(); q.put(("progress_close", None)); return
                     pgs = parse_page_range(f["pages"], len(src))
-                    for p in pgs:
-                        writer.insert_pdf(src, from_page=p - 1, to_page=p - 1)
-                    src.close()
-                    progress.step(idx + 1)
-                safe_save(writer, out, comp, pw)
-                writer.close()
-                progress.close()
-            messagebox.showinfo("Success", "Merged %d PDF(s) into:\n%s" % (len(self.files), out))
+                    for p in pgs: writer.insert_pdf(src, from_page=p - 1, to_page=p - 1)
+                    src.close(); q.put(("progress", idx + 1))
+                safe_save(writer, d["out"], d["comp"], d["pw"]); writer.close()
+                q.put(("progress_close", None))
+            q.put(("done", d["out"]))
         except Exception as e:
-            messagebox.showerror("Error", "Merge failed:\n%s" % e)
+            q.put(("error", str(e)))
+            try: q.put(("progress_close", None))
+            except: pass
 
 
 # ═══════════════════════ SPLIT UI ═══════════════════════
@@ -516,10 +549,12 @@ class SplitUI:
         self.parent = parent; self.app = app
         self.doc = None; self.doc_path = None
         self.page_images = []; self.page_rots = {}; self.page_del = set()
-        self._sel = set()
+        self._sel = set(); self._search_highlights = set()
+        self._undo_stack = []; self._redo_stack = []
         self.var_pw = tk.StringVar()
         self.var_compress = tk.BooleanVar(value=True)
         self._temp_files = []
+        self._task_queue = queue.Queue()
         self._build()
 
     def _build(self):
@@ -548,8 +583,15 @@ class SplitUI:
 
         af = ttk.Frame(f); af.pack(fill="x", pady=4)
         for t, c in [("Rotate CW", self.rot_cw), ("Rotate CCW", self.rot_ccw),
-                     ("Delete", self.del_sel), ("Restore All", self.restore),
-                     ("Insert Blank", self.insert_blank), ("Duplicate", self.dup_pgs)]:
+                     ("Delete", self.del_sel), ("Restore All", self.restore)]:
+            ttk.Button(af, text=t, command=c).pack(side="left", padx=2)
+        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
+        self.undo_btn = ttk.Button(af, text="Undo", command=self.undo, state="disabled")
+        self.undo_btn.pack(side="left", padx=2)
+        self.redo_btn = ttk.Button(af, text="Redo", command=self.redo, state="disabled")
+        self.redo_btn.pack(side="left", padx=2)
+        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
+        for t, c in [("Insert Blank", self.insert_blank), ("Duplicate", self.dup_pgs)]:
             ttk.Button(af, text=t, command=c).pack(side="left", padx=2)
 
         bf = ttk.Frame(f); bf.pack(fill="x", pady=4)
@@ -590,7 +632,10 @@ class SplitUI:
         self._set_doc(self.doc, self.doc_path)
 
     def _set_doc(self, doc, path):
-        self.doc = doc; self.doc_path = path; self.page_rots.clear(); self.page_del.clear(); self._sel.clear()
+        self.doc = doc; self.doc_path = path
+        self.page_rots.clear(); self.page_del.clear(); self._sel.clear()
+        self._search_highlights.clear()
+        self._undo_stack.clear(); self._redo_stack.clear(); self._update_undo_buttons()
         self.file_lbl.config(text=os.path.basename(path), foreground=THEME["fg"])
         self.pg_lbl.config(text="%d page(s)" % len(doc))
         self._render_thumbs()
@@ -621,7 +666,9 @@ class SplitUI:
             self._temp_files.append(tmp.name)
             photo = tk.PhotoImage(file=tmp.name)
             self.page_images.append(photo)
-            lbl = tk.Label(f2, image=photo, relief="solid", bd=1, bg=THEME["canvas_bg"])
+            sel = i in self._sel; hilite = i in self._search_highlights
+            bg = THEME["accent"] if sel else ("#f1c40f" if hilite else THEME["canvas_bg"])
+            lbl = tk.Label(f2, image=photo, relief="solid", bd=2, bg=bg)
             lbl.pack()
             lbl.bind("<Button-1>", lambda e, idx=i: self._toggle(idx))
             ttk.Label(f2, text=self._pg_label(i), font=FONT_SM).pack()
@@ -636,28 +683,80 @@ class SplitUI:
     def _toggle(self, idx):
         if idx in self._sel: self._sel.discard(idx)
         else: self._sel.add(idx)
+        self.parent.after(50, self._render_thumbs)
+
+    # ── undo / redo ──
+    def _save_state(self):
+        self._undo_stack.append({
+            "rots": dict(self.page_rots),
+            "del": set(self.page_del),
+            "sel": set(self._sel),
+        })
+        self._redo_stack.clear()
+        self._update_undo_buttons()
+
+    def _update_undo_buttons(self):
+        self.undo_btn.configure(state="normal" if self._undo_stack else "disabled")
+        self.redo_btn.configure(state="normal" if self._redo_stack else "disabled")
+
+    def undo(self):
+        if not self._undo_stack: return
+        self._redo_stack.append({
+            "rots": dict(self.page_rots),
+            "del": set(self.page_del),
+            "sel": set(self._sel),
+        })
+        state = self._undo_stack.pop()
+        self.page_rots = state["rots"]
+        self.page_del = state["del"]
+        self._sel = state["sel"]
+        self._render_thumbs()
+        self._update_undo_buttons()
+
+    def redo(self):
+        if not self._redo_stack: return
+        self._undo_stack.append({
+            "rots": dict(self.page_rots),
+            "del": set(self.page_del),
+            "sel": set(self._sel),
+        })
+        state = self._redo_stack.pop()
+        self.page_rots = state["rots"]
+        self.page_del = state["del"]
+        self._sel = state["sel"]
+        self._render_thumbs()
+        self._update_undo_buttons()
 
     # ── page actions ──
     def rot_cw(self):
+        if not self._sel or not self.doc: return
+        self._save_state()
         for i in list(self._sel):
             self.page_rots[i] = (self.page_rots.get(i, 0) + 90) % 360
         self._sel.clear(); self._render_thumbs()
 
     def rot_ccw(self):
+        if not self._sel or not self.doc: return
+        self._save_state()
         for i in list(self._sel):
             self.page_rots[i] = (self.page_rots.get(i, 0) - 90) % 360
         self._sel.clear(); self._render_thumbs()
 
     def del_sel(self):
+        if not self._sel: return
+        self._save_state()
         self.page_del.update(self._sel)
         self._sel.clear(); self._render_thumbs()
 
     def restore(self):
+        if not self.page_rots and not self.page_del: return
+        self._save_state()
         self.page_rots.clear(); self.page_del.clear(); self._sel.clear(); self._render_thumbs()
 
     def dup_pgs(self):
         idxs = sorted(self._sel)
         if not idxs: return
+        self._undo_stack.clear(); self._redo_stack.clear(); self._update_undo_buttons()
         new = fitz.open()
         for i in range(len(self.doc)):
             if i not in self.page_del:
@@ -672,6 +771,7 @@ class SplitUI:
         if pos is None: return
         cnt = simpledialog.askinteger("Insert Blank", "How many blank pages?", minvalue=1, maxvalue=100, initialvalue=1)
         if cnt is None: return
+        self._save_state()
         new = fitz.open()
         w, h = self.doc[0].rect.width, self.doc[0].rect.height
         for i in range(len(self.doc)):
@@ -684,6 +784,8 @@ class SplitUI:
         self.doc.close(); self._set_doc(new, self.doc_path)
 
     def mirror_pages(self):
+        if not self._sel: return
+        self._save_state()
         for i in list(self._sel):
             if i in self.page_del: continue
             pg = self.doc[i]
@@ -693,8 +795,15 @@ class SplitUI:
 
     def to_grayscale(self):
         if not self.doc: return
-        path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="grayscale.pdf")
-        if not path: return
+        choice = messagebox.askyesnocancel("Grayscale",
+            "Save as new file? (Yes=new file, No=overwrite current, Cancel=abort)")
+        if choice is None: return
+        path = None
+        if choice:
+            path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="grayscale.pdf")
+            if not path: return
+        else:
+            path = self.doc_path
         try:
             nd = fitz.open()
             for i in range(len(self.doc)):
@@ -702,7 +811,11 @@ class SplitUI:
                 nd.insert_pdf(self.doc, from_page=i, to_page=i)
             nd.save(path, garbage=4, deflate=True, colorspace=fitz.csGRAY)
             nd.close()
-            messagebox.showinfo("Done", "Saved grayscale PDF to:\n%s" % path)
+            if choice:
+                messagebox.showinfo("Done", "Saved grayscale PDF to:\n%s" % path)
+            else:
+                self.doc.close(); self._set_doc(fitz.open(path), path)
+                messagebox.showinfo("Done", "Document converted to grayscale in-place.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -710,19 +823,30 @@ class SplitUI:
         if not self.doc: return
         q = simpledialog.askstring("Search", "Search text:")
         if not q: return
+        self._search_highlights.clear(); self._render_thumbs()
+        try:
+            threading.Thread(target=self._search_worker, args=(q,), daemon=True).start()
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _search_worker(self, q):
         results = []
+        highlights = set()
         for i in range(len(self.doc)):
             if i in self.page_del: continue
             insts = self.doc[i].search_for(q)
-            for r in insts:
-                # Get surrounding text for context
-                ctx = self.doc[i].get_text("text", clip=r).strip()
-                snippet = ctx[:100] if ctx else "(found at %s)" % r
-                results.append("Page %d: ...%s..." % (i + 1, snippet))
+            if insts:
+                highlights.add(i)
+                for r in insts:
+                    ctx = self.doc[i].get_text("text", clip=r).strip()
+                    snippet = ctx[:100] if ctx else "(found at %s)" % r
+                    results.append("Page %d: ...%s..." % (i + 1, snippet))
+        self._search_highlights = highlights
+        self.parent.after(0, self._render_thumbs)
         if results:
-            self._show_search_results(results)
+            self.parent.after(0, lambda: self._show_search_results(results))
         else:
-            messagebox.showinfo("Search", "No results found.")
+            self.parent.after(0, lambda: messagebox.showinfo("Search", "No results found."))
 
     def _show_search_results(self, results):
         top = tk.Toplevel(self.parent)
