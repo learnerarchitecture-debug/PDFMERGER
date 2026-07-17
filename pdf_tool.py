@@ -4,13 +4,7 @@ import os, json, threading, queue, io
 from pathlib import Path
 
 import fitz
-
-try:
-    from PIL import Image, ImageTk
-    HAS_PIL = True
-except ImportError:
-    HAS_PIL = False
-    Image = ImageTk = None
+import tempfile
 
 APP_NAME = "PDFMerger"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
@@ -481,7 +475,7 @@ class SplitTab:
         self.app = app
         self.doc = None
         self.doc_path = None
-        self.page_images = []  # list of ImageTk.PhotoImage
+        self.page_images = []
         self.page_rotations = {}  # index -> rotation delta
         self.page_deleted = set()
         self.thumb_frame_refs = []
@@ -680,21 +674,16 @@ class SplitTab:
             page = self.doc[i]
             mat = fitz.Matrix(THUMB_W / page.rect.width, THUMB_H / page.rect.height)
             pix = page.get_pixmap(matrix=mat)
-            if HAS_PIL:
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                photo = ImageTk.PhotoImage(img)
-                self.page_images.append(photo)
-                lbl = tk.Label(
-                    f, image=photo, relief="solid", bd=1,
-                    bg=self.app.colors["canvas_bg"],
-                )
-            else:
-                lbl = tk.Label(
-                    f, text=f"Page {i + 1}\n({pix.width}x{pix.height})",
-                    relief="solid", bd=1,
-                    bg=self.app.colors["canvas_bg"],
-                    width=16, height=6,
-                )
+            tmp = tempfile.NamedTemporaryFile(suffix=".ppm", delete=False)
+            tmp.write(pix.tobytes("ppm"))
+            tmp.close()
+            photo = tk.PhotoImage(file=tmp.name)
+            os.unlink(tmp.name)
+            self.page_images.append(photo)
+            lbl = tk.Label(
+                f, image=photo, relief="solid", bd=1,
+                bg=self.app.colors["canvas_bg"],
+            )
             lbl.pack()
             lbl.bind("<Button-1>", lambda e, idx=i: self._toggle_select(idx))
 
