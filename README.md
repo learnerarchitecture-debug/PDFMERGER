@@ -1,106 +1,74 @@
-# PDF Merger & Splitter
+# PDF Suite Pro
 
+**Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER
 
-Merge and split PDF files on **Windows** (desktop app) and **Android** (mobile app).
+A full-featured PDF and image utility for **Windows** with a modern dark UI.
 
 ## Features
 
-- **Merge PDFs** — Combine multiple PDFs into one, with per-file page range selection
-- **Split PDF** — Split every page into separate files, or extract a custom page range
-- **Page Thumbnails** — Visual preview of all pages
-- **Rotate Pages** — Rotate selected pages 90° CW or CCW
-- **Delete Pages** — Remove unwanted pages before saving
-- **Split by Bookmarks** — Automatically split chapters using PDF table of contents
-- **Password Protection** — Encrypt output PDFs with AES-256 password
-- **Unlock PDFs** — Open password-protected PDFs
-- **Compress** — Reduce output file size
-- **Dark Mode** — Toggle dark/light theme (Windows only)
-- **Drag & Drop Reorder** — Reorder files in the merge list by dragging
-- **Recent Files** — Quick access to recently opened PDFs
+### Merge
+- Standard PDF merging with per-file page ranges
+- **Alternate merge** — interleave pages from multiple files
+- Insert PDF at specific position
+- Add cover page
+- Duplicate selected files
+- Drag-and-drop reorder
+- Password protect output
+- Compression
 
-## Quick Start (Windows)
+### Split
+- Split every page to separate files
+- Extract custom page range (e.g. `1,3,5-7`)
+- **Split by bookmarks** (chapters)
+- **Split by page count** (every N pages)
+- **Split even/odd pages** (for duplex scanning)
+- **Extract all images** from PDF
+- **Extract all text** to .txt file
+- Rotate pages (CW/CCW)
+- Delete pages
+- Insert blank pages
+- Duplicate pages
+- Mirror/flip pages
+- Convert to grayscale
+- Search text within PDF
+- Save As with modifications
 
-1. Double-click `dist/PDFMerger.exe` — no installation needed
-2. Or right-click `dist/PDFMerger.exe` → **Create shortcut** on desktop
+### Tools
+- **Digital Signature** — Sign any PDF with styled "Digitally Signed by AYUSH GUPTA" box with date
+- **Image Compression** — Reduce JPG/PNG file size (adjustable quality 1-100)
+- **Images to PDF** — Combine multiple images into a single PDF
+- **PDF Compression** — 4 levels (Low/Medium/High/Max with image downsampling)
+- **Redact Text** — Permanently remove text from PDF
+- **Remove Metadata** — Strip all author/date/metadata
+- **Password Protect** — AES-256 encrypt PDFs
+- **Remove Password** — Decrypt password-protected PDFs
+- **Add Page Numbers** — Auto-number all pages
+- **Flatten PDF** — Merge all layers/annotations
 
-## Desktop (Windows)
+## Quick Start
 
-### Requirements
-- Windows 10 or later (64-bit)
-- No additional software — executable is self-contained
+1. Download or build `dist/PDFSuite.exe`
+2. Double-click `PDFSuite.exe` — no installation needed
+3. Right-click → Create shortcut on desktop for quick access
 
-### Installation
-See [INSTALLATION.txt](INSTALLATION.txt) for detailed instructions.
+## Build from Source
 
-### Build from Source
 ```bash
-pip install -r requirements.txt
-pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
+pip install PyMuPDF
+pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
 ```
-
-### Run Directly (no build needed)
-```bash
-pip install -r requirements.txt
-python pdf_tool.py
-```
-
----
-
-## Android
-
-### Requirements
-- Python 3.8+ with Kivy and Buildozer
-- Linux environment (or WSL) for building the APK
-
-### Build APK
-```bash
-cd android/
-pip install buildozer
-buildozer android debug
-# APK: android/bin/*.apk
-```
-
-Or with Docker:
-```bash
-cd android/
-docker run --rm -v "$(pwd):/opt/app" -w /opt/app kivy/buildozer:latest buildozer android debug
-```
-
-## Usage
-
-### Merge Tab
-1. Click **Add PDF(s)** to select files
-2. Select a file and enter a **page range** (e.g. `1-5,7,9-12`) or leave as `all`
-3. Drag items to reorder
-4. Set **output filename**, optional **password**, and **compress** option
-5. Click **Merge!**
-
-### Split Tab
-1. Click **Open PDF** to load a file
-2. Click thumbnails to **select pages**
-3. Use **Rotate CW/CCW** or **Delete Selected** to modify pages
-4. Choose: **Extract** | **Split All** | **Split by Bookmarks** | **Save As**
 
 ## Project Structure
 
 ```
-├── pdf_tool.py              # Desktop app source (tkinter/PyMuPDF)
-├── dist/PDFMerger.exe       # Pre-built Windows executable
-├── android/
-│   ├── main.py              # Android app (Kivy/PyMuPDF)
-│   └── buildozer.spec       # Buildozer configuration
-├── requirements.txt         # Python dependencies
+├── pdf_tool.py              # Main application source
+├── dist/PDFSuite.exe        # Pre-built executable
+├── android/                 # Android app (Kivy)
+├── requirements.txt
 ├── README.md
-├── INSTALLATION.txt         # Full installation guide
-└── INSTALL.txt              # Quick install reference
+└── INSTALLATION.txt
 ```
-
-## Dependencies
-
-- **PyMuPDF** (fitz) — PDF reading, writing, rendering
-- **PyInstaller** (build only) — Package Windows executable
-- **Kivy + Plyer** (Android only) — Mobile UI & file picker
 
 ## License
 
