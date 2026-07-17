@@ -1088,14 +1088,23 @@ class ToolsUI:
         path = filedialog.askopenfilename(title="Select encrypted PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
         pw = simpledialog.askstring("Password", "Enter current password:", show="*")
-        if not pw: return
+        if pw is None: return  # Cancel
         out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="decrypted.pdf")
         if not out: return
         try:
             doc = fitz.open(path)
             if doc.is_encrypted:
-                if not doc.authenticate(pw):
-                    messagebox.showerror("Error", "Incorrect password"); return
+                result = doc.authenticate(pw)
+                if result == 0:
+                    messagebox.showerror("Error", "Incorrect password"); doc.close(); return
+                # Verify by checking page count
+                try:
+                    _ = doc.page_count
+                except Exception:
+                    messagebox.showerror("Error", "Incorrect password - cannot read content"); doc.close(); return
+            else:
+                messagebox.showinfo("Info", "This PDF is not encrypted.")
+                doc.close(); return
             doc.save(out, garbage=4, deflate=True)
             doc.close()
             messagebox.showinfo("Success", "Password removed.\nSaved to:\n%s" % out)
