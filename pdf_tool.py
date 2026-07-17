@@ -4,7 +4,13 @@ import os, json, threading, queue, io
 from pathlib import Path
 
 import fitz
-from PIL import Image, ImageTk
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+    Image = ImageTk = None
 
 APP_NAME = "PDFMerger"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
@@ -674,14 +680,21 @@ class SplitTab:
             page = self.doc[i]
             mat = fitz.Matrix(THUMB_W / page.rect.width, THUMB_H / page.rect.height)
             pix = page.get_pixmap(matrix=mat)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            photo = ImageTk.PhotoImage(img)
-            self.page_images.append(photo)
-
-            lbl = tk.Label(
-                f, image=photo, relief="solid", bd=1,
-                bg=self.app.colors["canvas_bg"],
-            )
+            if HAS_PIL:
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                photo = ImageTk.PhotoImage(img)
+                self.page_images.append(photo)
+                lbl = tk.Label(
+                    f, image=photo, relief="solid", bd=1,
+                    bg=self.app.colors["canvas_bg"],
+                )
+            else:
+                lbl = tk.Label(
+                    f, text=f"Page {i + 1}\n({pix.width}x{pix.height})",
+                    relief="solid", bd=1,
+                    bg=self.app.colors["canvas_bg"],
+                    width=16, height=6,
+                )
             lbl.pack()
             lbl.bind("<Button-1>", lambda e, idx=i: self._toggle_select(idx))
 
