@@ -1,0 +1,128 @@
+Staircase Calculator - AutoCAD/ZWCAD LISP Plugin
+==================================================
+
+INSTALLATION INSTRUCTIONS
+-------------------------
+
+Method 1: Manual Load (Quick Test)
+1. Open AutoCAD or ZWCAD
+2. Type APPLOAD at command prompt
+3. Browse and select StairCalc.lsp
+4. Click "Load"
+5. Type STAIRCALC at command prompt to launch
+
+Method 2: Auto-load on Startup (AutoCAD)
+1. Copy StairCalc.lsp to your AutoCAD support path:
+   - Type (getvar "ROAMABLEROOTPREFIX") to find your support folder
+   - Typical: C:\Users\<username>\AppData\Roaming\Autodesk\AutoCAD <version>\Rxx\enu\Support\
+2. Edit acad.lsp (or create one) in the same folder
+3. Add this line: (load "StairCalc.lsp")
+4. Restart AutoCAD
+5. Type STAIRCALC to launch
+
+Method 3: Auto-load on Startup (ZWCAD)
+1. Copy StairCalc.lsp to ZWCAD support folder:
+   - Typical: C:\Users\<username>\AppData\Roaming\ZWSOFT\ZWCAD <version>\en_US\Support\
+2. Edit zwcad.lsp (or create one) in the same folder
+3. Add: (load "StairCalc.lsp")
+4. Restart ZWCAD
+5. Type STAIRCALC to launch
+
+Method 4: Drag & Drop (Quick)
+- Simply drag StairCalc.lsp onto the AutoCAD/ZWCAD drawing area
+- Type STAIRCALC to launch
+
+USAGE INSTRUCTIONS
+------------------
+
+1. Launch: Type STAIRCALC at command prompt
+
+2. Calculation Modes:
+   - "Ceiling Height + Slab Height → Riser": Enter ceiling height and slab thickness, calculates optimal riser height
+   - "Riser + Slab Height (default 9\") → Ceiling Height": Enter riser height, calculates ceiling height
+
+3. Unit System:
+   - Auto-detect: Reads INSUNITS system variable automatically
+   - Manual: Select from dropdown (mm, cm, m, inches, feet, feet-inches)
+   - Input fields accept: 1700, 1700mm, 5'6", 5ft 6in, 1.7m, 170cm, etc.
+
+4. Imperial Notation Auto-detection:
+   - Enable "Auto-detect ' and \" notation" 
+   - Enter: 9'6", 9ft 6in, 9' 6", 114", etc.
+   - Parses: feet (' or ft), inches (" or in), mm, cm, m
+
+5. Results Display:
+   - Select display unit from dropdown
+   - Shows: Riser height, Tread depth, Ceiling height, Slab thickness
+   - Number of risers/treads, Total run, Total rise
+
+6. Draw Stair:
+   - Click "Draw Stair" button
+   - Pick insertion point (lower-left of first step)
+   - Creates: Step outlines, overall polyline, dimensions, label
+   - Drawn on layer "STAIR_CALC" (color green)
+
+FORMULAS USED
+-------------
+- Ideal Riser: ~7" (175-180mm)
+- Comfort Formula: 2R + T = 24" to 25" (610-635mm)
+- Minimum Tread: 9" (229mm)
+- Maximum Riser: 8.5" (215mm)
+- Minimum Riser: 5" (127mm)
+
+Number of Risers = Total Rise / Ideal Riser (rounded)
+Actual Riser = Total Rise / Number of Risers
+Tread = 24" - 2 × Riser (or user input)
+
+UNITS SUPPORTED
+---------------
+- Millimeters (mm) - INSUNITS=4
+- Centimeters (cm) - INSUNITS=5
+- Meters (m) - INSUNITS=6
+- Inches (in) - INSUNITS=1
+- Feet (ft) - INSUNITS=2
+- Feet-Inches (ft-in) - Architectural
+
+INPUT EXAMPLES
+--------------
+Metric:      2800, 2800mm, 2.8m, 280cm
+Imperial:    9'2", 9ft 2in, 110", 9.17ft
+Mixed:       2.8m (auto-converts based on display unit)
+
+COMMANDS
+--------
+STAIRCALC      - Launch calculator dialog
+STAIRCALC-LOAD - Show load confirmation message
+
+REQUIREMENTS
+------------
+- AutoCAD 2010+ or ZWCAD 2019+
+- Visual LISP support (standard in full AutoCAD/ZWCAD)
+
+TROUBLESHOOTING
+---------------
+- If DCL doesn't load: Check that StairCalc.lsp is in support path
+- If dialog doesn't appear: Type (load "StairCalc.lsp") then STAIRCALC
+- If units wrong: Check INSUNITS variable (type INSUNITS at command line)
+- ZWCAD: Ensure you're using ZWCAD Professional (not Standard) for LISP support
+
+UNINSTALL
+---------
+1. Remove (load "StairCalc.lsp") from acad.lsp / zwcad.lsp
+2. Delete StairCalc.lsp from support folder
+3. Restart CAD
+
+VERSION HISTORY
+---------------
+v1.0 - Initial release
+- Dual calculation modes
+- Auto unit detection from INSUNITS
+- Imperial notation parsing (' and ")
+- DCL GUI with real-time calculation
+- AutoCAD/ZWCAD stair drawing with dimensions
+- Layer management (STAIR_CALC layer)
+
+SUPPORT
+-------
+For issues or feature requests, check the LISP code comments
+or modify the source directly - it's open source!

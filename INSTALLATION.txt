@@ -1,0 +1,56 @@
+PDF Merger & Splitter - Installation Guide
+============================================
+
+Option 1: Using the Pre-built Executable (Recommended)
+-------------------------------------------------------
+
+1. Locate the `dist/PDFMerger.exe` file in the project folder.
+
+2. Double-click `PDFMerger.exe` to run the application.
+   - No installation required.
+   - The app runs as a portable executable from any location.
+
+3. (Optional) Create a shortcut:
+   - Right-click `PDFMerger.exe` -> Create shortcut
+   - Move the shortcut to your desktop or Start Menu
+
+Option 2: Running from Source (Advanced)
+-----------------------------------------
+
+Requirements:
+  - Python 3.8 or later
+  - Windows, macOS, or Linux
+
+Steps:
+  1. Install dependencies:
+     pip install PyMuPDF Pillow
+
+  2. Run the script:
+     python pdf_tool.py
+
+Option 3: Building Your Own Executable
+----------------------------------------
+
+  1. Install dependencies including PyInstaller:
+     pip install PyMuPDF Pillow pyinstaller
+
+  2. Build the executable:
+     pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
+
+  3. Find the executable in the `dist/` folder.
+
+Troubleshooting
+---------------
+
+- "Windows protected your PC" / SmartScreen:
+  Click "More info" -> "Run anyway". This is a standard warning for
+  unsigned executables built with PyInstaller.
+
+- Antivirus false positive:
+  Some antivirus software may flag PyInstaller-built executables.
+  You can verify the file at VirusTotal or build from source yourself.
+
+- The app does not start:
+  Ensure you have the latest Windows updates installed.
+  Try running from the command line to see error messages:
+    .\PDFMerger.exe
