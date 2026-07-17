@@ -24,6 +24,97 @@ FONT_BOLD = ("Segoe UI", 10, "bold")
 FONT_SM = ("Segoe UI", 9)
 
 
+FEEDBACK_FILE = SETTINGS_DIR / "feedback.json"
+
+
+def load_feedback():
+    if FEEDBACK_FILE.exists():
+        try: return json.loads(FEEDBACK_FILE.read_text())
+        except: pass
+    return {"rating": 0, "review": "", "submitted": False}
+
+
+def save_feedback(data):
+    try: FEEDBACK_FILE.write_text(json.dumps(data, indent=2))
+    except: pass
+
+
+class RatingDialog:
+    def __init__(self, parent):
+        self.parent = parent
+        self.rating = 0
+        self.star_btns = []
+        self.data = load_feedback()
+
+        self.top = tk.Toplevel(parent)
+        self.top.title("Rate & Review")
+        self.top.geometry("400x320")
+        self.top.resizable(False, False)
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.configure(bg=THEME["bg"])
+
+        f = ttk.Frame(self.top, padding=14)
+        f.pack(fill="both", expand=True)
+
+        ttk.Label(f, text="Rate PDF Suite Pro", font=("Segoe UI", 14, "bold")).pack(pady=6)
+        ttk.Label(f, text="Tap a star to rate:", font=FONT).pack()
+
+        sf = ttk.Frame(f)
+        sf.pack(pady=8)
+        for i in range(5):
+            btn = tk.Button(sf, text="\u2606", font=("Segoe UI", 24),
+                bg=THEME["bg"], fg=THEME["accent"], relief="flat",
+                activebackground=THEME["bg"], activeforeground=THEME["accent2"],
+                cursor="hand2",
+                command=lambda v=i + 1: self.set_star(v))
+            btn.pack(side="left", padx=3)
+            self.star_btns.append(btn)
+
+        self.rating_lbl = ttk.Label(f, text="", font=FONT_BOLD)
+        self.rating_lbl.pack()
+
+        ttk.Label(f, text="Leave a review (optional):", font=FONT).pack(anchor="w", pady=(8, 2))
+        self.review_text = tk.Text(f, height=3, bg=THEME["entry"], fg=THEME["fg"],
+            font=FONT, relief="flat", insertbackground=THEME["fg"])
+        self.review_text.pack(fill="x")
+
+        if self.data["submitted"]:
+            self.set_star(self.data["rating"], animate=False)
+            self.review_text.insert("1.0", self.data.get("review", ""))
+            self.review_text.configure(state="disabled")
+
+        bf = ttk.Frame(f); bf.pack(fill="x", pady=8)
+        ttk.Button(bf, text="Submit", command=self.submit).pack(side="left", padx=4)
+        ttk.Button(bf, text="Open GitHub Issues", command=self.open_github).pack(side="left", padx=4)
+        ttk.Button(bf, text="Close", command=self.top.destroy).pack(side="right", padx=4)
+
+    def set_star(self, v, animate=True):
+        self.rating = v
+        labels = {1: "Poor", 2: "Below Average", 3: "Average", 4: "Good", 5: "Excellent"}
+        self.rating_lbl.config(text="%d / 5 - %s" % (v, labels.get(v, "")))
+        for i, btn in enumerate(self.star_btns):
+            btn.config(text="\u2605" if i < v else "\u2606",
+                fg=THEME["accent"] if i < v else THEME["button_hover"])
+
+    def submit(self):
+        if self.rating == 0:
+            messagebox.showerror("Error", "Please select a rating.", parent=self.top)
+            return
+        self.data["rating"] = self.rating
+        self.data["review"] = self.review_text.get("1.0", "end-1c").strip()
+        self.data["submitted"] = True
+        save_feedback(self.data)
+        self.review_text.configure(state="disabled")
+        messagebox.showinfo("Thank You",
+            "Thank you for your rating (%d/5)!\n\nYour feedback helps improve the app."
+            % self.rating, parent=self.top)
+
+    def open_github(self):
+        import webbrowser
+        webbrowser.open("https://github.com/learnerarchitecture-debug/PDFMERGER/issues")
+
+
 def load_settings():
     if SETTINGS_FILE.exists():
         try: return json.loads(SETTINGS_FILE.read_text())
@@ -213,6 +304,8 @@ class PDFSuite:
         vm.add_command(label="Go to Page...", command=lambda: self.split_ui.goto_page())
         hm = tk.Menu(mb, tearoff=0, bg=THEME["frame"], fg=THEME["fg"])
         mb.add_cascade(label="Help", menu=hm)
+        hm.add_command(label="Rate & Review", command=self.open_rating)
+        hm.add_separator()
         hm.add_command(label="About", command=self.show_about)
 
     def _refresh_recents(self):
@@ -240,6 +333,9 @@ class PDFSuite:
         self.settings["recent_files"] = self.recent_files
         save_settings(self.settings)
         self.root.destroy()
+
+    def open_rating(self):
+        RatingDialog(self.root)
 
     def show_about(self):
         messagebox.showinfo("About PDF Suite Pro",
@@ -883,9 +979,16 @@ class ToolsUI:
         ttk.Button(misc, text="Add Page Numbers", command=self.add_page_numbers).pack(fill="x", pady=2)
         ttk.Button(misc, text="Flatten PDF (annotations)", command=self.flatten_pdf).pack(fill="x", pady=2)
         self._btn(misc, "Clone Open PDF x2", lambda: self._run_split("dup_pgs"))
+        ttk.Separator(misc, orient="horizontal").pack(fill="x", pady=4)
+        tk.Button(misc, text="\u2605 Rate & Review", font=FONT_BOLD,
+            bg=THEME["accent"], fg="#1e1e2e", relief="flat", cursor="hand2",
+            command=self.open_rating).pack(fill="x", pady=2)
 
     def _btn(self, parent, text, cmd):
         ttk.Button(parent, text=text, command=cmd).pack(fill="x", pady=2)
+
+    def open_rating(self):
+        RatingDialog(self.parent)
 
     def _run_split(self, method):
         su = self.app.split_ui
