@@ -1,9 +1,8 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk, simpledialog, colorchooser
-import os, json, threading, queue, io, tempfile, re
+from tkinter import filedialog, messagebox, ttk, simpledialog
+import os, json, tempfile
 from pathlib import Path
 from datetime import datetime
-
 import fitz
 
 APP_NAME = "PDF Suite Pro"
@@ -14,8 +13,8 @@ THUMB_W, THUMB_H = 130, 170
 MAX_RECENT = 15
 
 THEME = {
-    "bg": "#1e1e2e", "fg": "#cdd6f4", "select": "#45475a",
-    "accent": "#89b4fa", "accent2": "#a6e3a1", "danger": "#f38ba8",
+    "bg": "#1e1e2e", "fg": "#cdd6f4",
+    "accent": "#89b4fa", "accent2": "#a6e3a1",
     "frame": "#313244", "entry": "#45475a", "button": "#45475a",
     "button_hover": "#585b70", "tab_bg": "#1e1e2e", "tab_fg": "#cdd6f4",
     "tab_sel": "#89b4fa", "notebook_bg": "#181825", "canvas_bg": "#313244",
@@ -23,20 +22,47 @@ THEME = {
 FONT = ("Segoe UI", 10)
 FONT_BOLD = ("Segoe UI", 10, "bold")
 FONT_SM = ("Segoe UI", 9)
-HEADER_FONT = ("Segoe UI", 12, "bold")
 
 
 def load_settings():
     if SETTINGS_FILE.exists():
         try: return json.loads(SETTINGS_FILE.read_text())
         except: pass
-    return {"recent_files": [], "theme": "dark"}
+    return {"recent_files": []}
+
 
 def save_settings(data):
     try: SETTINGS_FILE.write_text(json.dumps(data, indent=2))
     except: pass
 
-# ─── Progress ───
+
+def parse_page_range(text, total):
+    if not text or text.strip() == "all":
+        return list(range(1, total + 1))
+    result = set()
+    for part in text.replace(" ", "").split(","):
+        if not part: continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            s, e = int(a), int(b)
+            if s < 1 or e > total:
+                raise ValueError("Range %s out of bounds (1-%d)" % (part, total))
+            result.update(range(s, e + 1))
+        else:
+            v = int(part)
+            if v < 1 or v > total:
+                raise ValueError("Page %d out of bounds (1-%d)" % (v, total))
+            result.add(v)
+    return sorted(result)
+
+
+def safe_save(doc, path, compress=True, password=None):
+    doc.save(path,
+        encryption=fitz.PDF_ENCRYPT_AES_256 if password else 0,
+        user_pw=password or None, owner_pw=password or None,
+        garbage=4 if compress else 1, deflate=compress)
+
+
 class ProgressDlg:
     def __init__(self, parent, title, maxval):
         self.top = tk.Toplevel(parent)
@@ -103,15 +129,6 @@ class ReorderListbox(tk.Listbox):
         self.activate(b)
 
 
-# ─── Text Capture for stdout in GUI ───
-class TextRedirector:
-    def __init__(self, widget): self.widget = widget
-    def write(self, s):
-        self.widget.insert("end", s)
-        self.widget.see("end")
-    def flush(self): pass
-
-
 # ═══════════════════════ MAIN APP ═══════════════════════
 class PDFSuite:
     def __init__(self, root):
@@ -121,30 +138,10 @@ class PDFSuite:
         self.root.minsize(800, 550)
         self.root.configure(bg=THEME["bg"])
 
-        c = THEME
         self.settings = load_settings()
         self.recent_files = self.settings.get("recent_files", [])
 
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure(".", background=c["bg"], foreground=c["fg"], font=FONT)
-        style.configure("TFrame", background=c["bg"])
-        style.configure("TLabel", background=c["bg"], foreground=c["fg"], font=FONT)
-        style.configure("TNotebook", background=c["notebook_bg"])
-        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[14, 6], font=FONT_BOLD)
-        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#1e1e2e")])
-        style.configure("TButton", background=c["button"], foreground=c["fg"], bordercolor=c["accent"], focuscolor="none", font=FONT)
-        style.map("TButton", background=[("active", c["button_hover"])], foreground=[("active", c["fg"])])
-        style.configure("TEntry", fieldbackground=c["entry"], foreground=c["fg"], insertcolor=c["fg"])
-        style.configure("TLabelframe", background=c["bg"], foreground=c["fg"])
-        style.configure("TLabelframe.Label", background=c["bg"], foreground=c["fg"], font=FONT_BOLD)
-        style.configure("TNotebook", tabposition="nw")
-        style.configure("Vertical.TScrollbar", background=c["button"], troughcolor=c["bg"])
-        style.configure("Horizontal.TScrollbar", background=c["button"], troughcolor=c["bg"])
-        style.configure("TCheckbutton", background=c["bg"], foreground=c["fg"])
-        style.map("TCheckbutton", background=[("active", c["bg"])])
-        style.configure("TRadiobutton", background=c["bg"], foreground=c["fg"])
-
+        self._apply_theme()
         self._build_menu()
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=8)
@@ -162,7 +159,26 @@ class PDFSuite:
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-    # ── Menu ──
+    def _apply_theme(self):
+        c = THEME
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure(".", background=c["bg"], foreground=c["fg"], font=FONT)
+        style.configure("TFrame", background=c["bg"])
+        style.configure("TLabel", background=c["bg"], foreground=c["fg"], font=FONT)
+        style.configure("TNotebook", background=c["notebook_bg"])
+        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[14, 6], font=FONT_BOLD)
+        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#1e1e2e")])
+        style.configure("TButton", background=c["button"], foreground=c["fg"], bordercolor=c["accent"], focuscolor="none", font=FONT)
+        style.map("TButton", background=[("active", c["button_hover"])], foreground=[("active", c["fg"])])
+        style.configure("TEntry", fieldbackground=c["entry"], foreground=c["fg"], insertcolor=c["fg"])
+        style.configure("TLabelframe", background=c["bg"], foreground=c["fg"])
+        style.configure("TLabelframe.Label", background=c["bg"], foreground=c["fg"], font=FONT_BOLD)
+        style.configure("Vertical.TScrollbar", background=c["button"], troughcolor=c["bg"])
+        style.configure("Horizontal.TScrollbar", background=c["button"], troughcolor=c["bg"])
+        style.configure("TCheckbutton", background=c["bg"], foreground=c["fg"])
+        style.map("TCheckbutton", background=[("active", c["bg"])])
+
     def _build_menu(self):
         mb = tk.Menu(self.root, bg=THEME["frame"], fg=THEME["fg"], activebackground=THEME["accent"])
         self.root.config(menu=mb)
@@ -179,7 +195,7 @@ class PDFSuite:
         em = tk.Menu(mb, tearoff=0, bg=THEME["frame"], fg=THEME["fg"])
         mb.add_cascade(label="Edit", menu=em)
         em.add_command(label="Insert Blank Pages", command=lambda: self.split_ui.insert_blank())
-        em.add_command(label="Duplicate Pages", command=lambda: self.split_ui.duplicate_pages())
+        em.add_command(label="Duplicate Pages", command=lambda: self.split_ui.dup_pgs())
         em.add_command(label="Mirror / Flip Pages", command=lambda: self.split_ui.mirror_pages())
         em.add_command(label="Convert to Grayscale", command=lambda: self.split_ui.to_grayscale())
         em.add_separator()
@@ -227,25 +243,10 @@ class PDFSuite:
 
     def show_about(self):
         messagebox.showinfo("About PDF Suite Pro",
-            "PDF Suite Pro v2.0\n\n"
-            "Creator: AYUSH GUPTA\n\n"
-            "Features:\n"
-            "- Merge PDFs (standard, alternate, insert at page)\n"
-            "- Split PDFs (by count, even/odd, bookmarks, blank pages)\n"
-            "- Sign PDF with digital signature\n"
-            "- Image compression (JPG/PNG)\n"
-            "- PDF compression & optimization\n"
-            "- Rotate, delete, mirror, flip pages\n"
-            "- Extract images, text from PDF\n"
-            "- Redact content, remove metadata\n"
-            "- Convert to grayscale\n"
-            "- Insert blank pages, duplicate pages\n"
-            "- Search, page goto, dark mode\n"
-            "- Password protect / unlock PDFs\n"
-            "- Compress & deflate\n"
-            "- Drag-and-drop reorder\n"
-            "- Page thumbnails\n"
-            "- Recent files")
+            "PDF Suite Pro v2.1\n\nCreator: AYUSH GUPTA\n\n"
+            "Merge | Split | Sign | Compress | Redact | Extract\n"
+            "Password protect | Page numbers | Grayscale | Flatten\n"
+            "And many more PDF tools.")
 
 
 # ═══════════════════════ MERGE UI ═══════════════════════
@@ -255,25 +256,20 @@ class MergeUI:
         self.files = []
         self.var_pw = tk.StringVar()
         self.var_compress = tk.BooleanVar(value=True)
-        self.var_alternate = tk.BooleanVar(value=False)
         self._build()
 
     def _build(self):
         f = ttk.Frame(self.parent, padding=8)
         f.pack(fill="both", expand=True)
-        # Toolbar
         tb = ttk.Frame(f); tb.pack(fill="x", pady=4)
-        for t, c in [("+ Add PDFs", self.add_files), (". Browse", self.browse_out),
-                     ("Remove", self.rem_sel), ("Clear", self.clear_all)]:
-            b = ttk.Button(tb, text=t, command=c)
-            b.pack(side="left", padx=3)
+        for t, c in [("+ Add PDFs", self.add_files), ("Remove", self.rem_sel),
+                     ("Clear", self.clear_all), ("Duplicate Selected", self.dup_sel)]:
+            ttk.Button(tb, text=t, command=c).pack(side="left", padx=3)
         ttk.Label(tb, text="  Page range:").pack(side="left", padx=(20, 2))
         self.rng_var = tk.StringVar(value="all")
         ttk.Entry(tb, textvariable=self.rng_var, width=14).pack(side="left", padx=2)
         ttk.Button(tb, text="Apply", command=self.apply_range).pack(side="left", padx=2)
-        ttk.Checkbutton(tb, text="Alternate", variable=self.var_alternate).pack(side="left", padx=10)
 
-        # List
         lf = ttk.Frame(f); lf.pack(fill="both", expand=True, pady=4)
         self.lb = ReorderListbox(lf, bg=THEME["entry"], fg=THEME["fg"],
             selectbackground=THEME["accent"], selectforeground="#1e1e2e",
@@ -285,25 +281,22 @@ class MergeUI:
         self.info_lbl = ttk.Label(f, text="0 files", foreground="gray")
         self.info_lbl.pack(anchor="w")
 
-        # Bottom
         bf = ttk.Frame(f); bf.pack(fill="x", pady=4)
         ttk.Label(bf, text="Output:").pack(side="left", padx=2)
         self.out_var = tk.StringVar(value="merged.pdf")
-        self.out_e = ttk.Entry(bf, textvariable=self.out_var, width=28)
-        self.out_e.pack(side="left", padx=2)
-
+        ttk.Entry(bf, textvariable=self.out_var, width=28).pack(side="left", padx=2)
         sb = ttk.Frame(bf); sb.pack(side="right")
         ttk.Label(sb, text="Password:").pack(side="left", padx=(10, 2))
-        ttk.Entry(sb, textvariable=self.var_pw, width=12, show="*").pack(side="left", padx=2)
+        self.pw_e = ttk.Entry(sb, textvariable=self.var_pw, width=12, show="*")
+        self.pw_e.pack(side="left", padx=2)
         ttk.Checkbutton(sb, text="Compress", variable=self.var_compress).pack(side="left", padx=6)
-        self.merge_btn = ttk.Button(sb, text="  Merge!  ", command=self.merge)
-        self.merge_btn.pack(side="left", padx=4)
+        ttk.Button(sb, text="  Merge!  ", command=self.merge).pack(side="left", padx=4)
 
-        # Extra merge options
         ef = ttk.LabelFrame(f, text="Advanced Merge", padding=6); ef.pack(fill="x", pady=4)
         ttk.Button(ef, text="Insert PDF at Page...", command=self.insert_at_page).pack(side="left", padx=4)
         ttk.Button(ef, text="Add Cover Page...", command=self.add_cover).pack(side="left", padx=4)
-        ttk.Button(ef, text="Duplicate Selected x2", command=self.dup_sel).pack(side="left", padx=4)
+        self.alt_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ef, text="Alternate (interleave all)", variable=self.alt_var).pack(side="left", padx=10)
 
     def add_files(self):
         ps = filedialog.askopenfilenames(title="Select PDFs", filetypes=[("PDF", "*.pdf")])
@@ -313,10 +306,6 @@ class MergeUI:
                 self.lb.insert("end", os.path.basename(p) + "  [all]")
                 self.app.add_recent(p)
         self._upd_info()
-
-    def browse_out(self):
-        p = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile=self.out_var.get())
-        if p: self.out_var.set(p)
 
     def rem_sel(self):
         for i in reversed(self.lb.curselection()):
@@ -342,51 +331,19 @@ class MergeUI:
     def _upd_info(self):
         self.info_lbl.config(text="%d file(s)" % len(self.files))
 
-    def merge(self):
-        if len(self.files) < 1:
-            messagebox.showerror("Error", "Add at least 1 PDF file.")
-            return
-        out = self.out_var.get().strip() or "merged.pdf"
-        if not out.endswith(".pdf"): out += ".pdf"
-        if not os.path.dirname(out):
-            out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile=out)
-            if not out: return
-        pw = self.var_pw.get(); comp = self.var_compress.get()
-        alt = self.var_alternate.get()
-        try:
-            writer = fitz.open()
-            progress = ProgressDlg(self.parent, "Merging...", len(self.files))
-            for idx, f in enumerate(self.files):
-                src = fitz.open(f["path"])
-                pgs = f["pages"].strip()
-                if alt:
-                    # Alternate merge: interleave pages from each file
-                    for i in range(max(len(src), len(self.files))):
-                        if i < len(src):
-                            writer.insert_pdf(src, from_page=i, to_page=i)
-                elif not pgs or pgs == "all":
-                    writer.insert_pdf(src)
-                else:
-                    for p in self._prs(pgs, len(src)):
-                        writer.insert_pdf(src, from_page=p - 1, to_page=p - 1)
-                src.close()
-                progress.step(idx + 1)
-            writer.save(out, encryption=fitz.PDF_ENCRYPT_AES_256 if pw else 0,
-                user_pw=pw or None, owner_pw=pw or None,
-                garbage=4 if comp else 1, deflate=comp)
-            writer.close()
-            progress.close()
-            messagebox.showinfo("Success", "Merged %d PDF(s) into:\n%s" % (len(self.files), out))
-        except Exception as e:
-            messagebox.showerror("Error", "Merge failed:\n%s" % e)
+    def dup_sel(self):
+        for i in reversed(self.lb.curselection()):
+            f = self.files[i]
+            self.files.insert(i + 1, dict(f))
+            self.lb.insert(i + 1, os.path.basename(f["path"]) + "  [%s]" % f["pages"])
 
     def insert_at_page(self):
         if not self.files:
-            messagebox.showerror("Error", "Add files to merge list first.")
+            messagebox.showerror("Error", "Add files first.")
             return
         path = filedialog.askopenfilename(title="Select PDF to insert", filetypes=[("PDF", "*.pdf")])
         if not path: return
-        pg = simpledialog.askinteger("Insert At", "Insert after page number (in merged output):", minvalue=0, initialvalue=1)
+        pg = simpledialog.askinteger("Insert At", "Insert at position (0-based, 0=beginning):", minvalue=0, initialvalue=1)
         if pg is None: return
         pos = min(pg, len(self.files))
         self.files.insert(pos, {"path": path, "pages": "all"})
@@ -400,22 +357,61 @@ class MergeUI:
         self.lb.insert(0, "★ " + os.path.basename(path) + "  [cover]")
         self._upd_info()
 
-    def dup_sel(self):
-        s = self.lb.curselection()
-        for i in reversed(s):
-            f = self.files[i]
-            self.files.insert(i + 1, dict(f))
-            self.lb.insert(i + 1, os.path.basename(f["path"]) + "  [%s]" % f["pages"])
-
-    def _prs(self, t, total):
-        r = set()
-        for p in t.replace(" ", "").split(","):
-            if not p: continue
-            if "-" in p:
-                a, b = p.split("-", 1)
-                r.update(range(int(a), int(b) + 1))
-            else: r.add(int(p))
-        return sorted(x for x in r if 1 <= x <= total)
+    def merge(self):
+        if len(self.files) < 1:
+            messagebox.showerror("Error", "Add at least 1 PDF file.")
+            return
+        out = self.out_var.get().strip() or "merged.pdf"
+        if not out.endswith(".pdf"): out += ".pdf"
+        if not os.path.dirname(out):
+            out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile=out)
+            if not out: return
+        pw = self.var_pw.get().strip()
+        comp = self.var_compress.get()
+        alt = self.alt_var.get()
+        try:
+            if alt:
+                pages_by_file = []
+                for f in self.files:
+                    src = fitz.open(f["path"])
+                    if src.is_encrypted:
+                        messagebox.showerror("Error", "Cannot merge encrypted PDF:\n%s" % f["path"])
+                        src.close(); return
+                    pgs = parse_page_range(f["pages"], len(src))
+                    pages_by_file.append((src, pgs))
+                max_pgs = max(len(p[1]) for p in pages_by_file) if pages_by_file else 0
+                writer = fitz.open()
+                progress = ProgressDlg(self.parent, "Merging (alternate)...", max_pgs * len(pages_by_file))
+                cnt = 0
+                for i in range(max_pgs):
+                    for src, pgs in pages_by_file:
+                        if i < len(pgs):
+                            writer.insert_pdf(src, from_page=pgs[i] - 1, to_page=pgs[i] - 1)
+                            cnt += 1
+                            progress.step(cnt)
+                for src, _ in pages_by_file: src.close()
+                progress.close()
+                safe_save(writer, out, comp, pw)
+                writer.close()
+            else:
+                writer = fitz.open()
+                progress = ProgressDlg(self.parent, "Merging...", len(self.files))
+                for idx, f in enumerate(self.files):
+                    src = fitz.open(f["path"])
+                    if src.is_encrypted:
+                        messagebox.showerror("Error", "Cannot merge encrypted PDF:\n%s" % f["path"])
+                        src.close(); writer.close(); progress.close(); return
+                    pgs = parse_page_range(f["pages"], len(src))
+                    for p in pgs:
+                        writer.insert_pdf(src, from_page=p - 1, to_page=p - 1)
+                    src.close()
+                    progress.step(idx + 1)
+                safe_save(writer, out, comp, pw)
+                writer.close()
+                progress.close()
+            messagebox.showinfo("Success", "Merged %d PDF(s) into:\n%s" % (len(self.files), out))
+        except Exception as e:
+            messagebox.showerror("Error", "Merge failed:\n%s" % e)
 
 
 # ═══════════════════════ SPLIT UI ═══════════════════════
@@ -424,13 +420,14 @@ class SplitUI:
         self.parent = parent; self.app = app
         self.doc = None; self.doc_path = None
         self.page_images = []; self.page_rots = {}; self.page_del = set()
+        self._sel = set()
         self.var_pw = tk.StringVar()
         self.var_compress = tk.BooleanVar(value=True)
+        self._temp_files = []
         self._build()
 
     def _build(self):
         f = ttk.Frame(self.parent, padding=8); f.pack(fill="both", expand=True)
-        # Toolbar
         tb = ttk.Frame(f); tb.pack(fill="x", pady=4)
         ttk.Button(tb, text="Open PDF", command=self.open_pdf).pack(side="left", padx=2)
         self.file_lbl = ttk.Label(tb, text="No file loaded", foreground="gray")
@@ -441,7 +438,6 @@ class SplitUI:
         ttk.Entry(tb, textvariable=self.var_pw, width=14, show="*").pack(side="left", padx=2)
         ttk.Button(tb, text="Unlock", command=self.unlock).pack(side="left", padx=2)
 
-        # Thumbnail canvas
         cf = ttk.Frame(f); cf.pack(fill="both", expand=True, pady=4)
         self.canvas = tk.Canvas(cf, bg=THEME["canvas_bg"], highlightthickness=0)
         vs = ttk.Scrollbar(cf, orient="vertical", command=self.canvas.yview)
@@ -454,14 +450,12 @@ class SplitUI:
         self.tc.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.cw, width=e.width))
 
-        # Page actions
         af = ttk.Frame(f); af.pack(fill="x", pady=4)
         for t, c in [("Rotate CW", self.rot_cw), ("Rotate CCW", self.rot_ccw),
                      ("Delete", self.del_sel), ("Restore All", self.restore),
                      ("Insert Blank", self.insert_blank), ("Duplicate", self.dup_pgs)]:
             ttk.Button(af, text=t, command=c).pack(side="left", padx=2)
 
-        # Bottom
         bf = ttk.Frame(f); bf.pack(fill="x", pady=4)
         ttk.Label(bf, text="Extract:").pack(side="left", padx=2)
         self.ext_var = tk.StringVar()
@@ -473,7 +467,6 @@ class SplitUI:
         ttk.Separator(bf, orient="vertical").pack(side="left", fill="y", padx=6)
         ttk.Checkbutton(bf, text="Compress", variable=self.var_compress).pack(side="left", padx=4)
 
-    # ── load ──
     def open_pdf(self):
         p = filedialog.askopenfilename(title="Open PDF", filetypes=[("PDF", "*.pdf")])
         if p: self.load_pdf(p)
@@ -491,21 +484,28 @@ class SplitUI:
 
     def unlock(self):
         if not self.doc or not self.doc.is_encrypted: return
-        if self.doc.authenticate(self.var_pw.get()):
-            self._set_doc(self.doc, self.doc_path)
-        else:
-            messagebox.showerror("Error", "Incorrect password")
+        result = self.doc.authenticate(self.var_pw.get())
+        if result == 0:
+            messagebox.showerror("Error", "Incorrect password"); return
+        try:
+            _ = self.doc.page_count
+        except Exception:
+            messagebox.showerror("Error", "Incorrect password - cannot read content"); return
+        self._set_doc(self.doc, self.doc_path)
 
     def _set_doc(self, doc, path):
-        self.doc = doc; self.doc_path = path; self.page_rots.clear(); self.page_del.clear()
+        self.doc = doc; self.doc_path = path; self.page_rots.clear(); self.page_del.clear(); self._sel.clear()
         self.file_lbl.config(text=os.path.basename(path), foreground=THEME["fg"])
         self.pg_lbl.config(text="%d page(s)" % len(doc))
         self._render_thumbs()
 
-    # ── thumbs ──
     def _clear_thumbs(self):
         for w in self.tc.winfo_children(): w.destroy()
         self.page_images.clear()
+        for tmp in self._temp_files:
+            try: os.unlink(tmp)
+            except: pass
+        self._temp_files.clear()
 
     def _render_thumbs(self):
         self._clear_thumbs()
@@ -522,106 +522,141 @@ class SplitUI:
             pix = pg.get_pixmap(matrix=mat)
             tmp = tempfile.NamedTemporaryFile(suffix=".ppm", delete=False)
             tmp.write(pix.tobytes("ppm")); tmp.close()
+            self._temp_files.append(tmp.name)
             photo = tk.PhotoImage(file=tmp.name)
-            os.unlink(tmp.name)
             self.page_images.append(photo)
             lbl = tk.Label(f2, image=photo, relief="solid", bd=1, bg=THEME["canvas_bg"])
             lbl.pack()
             lbl.bind("<Button-1>", lambda e, idx=i: self._toggle(idx))
-            num = self._pg_label(i)
-            ttk.Label(f2, text=num, font=FONT_SM).pack()
+            ttk.Label(f2, text=self._pg_label(i), font=FONT_SM).pack()
 
     def _pg_label(self, i):
         parts = ["Page %d" % (i + 1)]
         if i in self.page_del: parts.append("[DEL]")
         rot = self.page_rots.get(i, 0)
-        if rot: parts.append("%d°" % rot)
+        if rot: parts.append("%d\xb0" % rot)
         return " ".join(parts)
 
     def _toggle(self, idx):
-        if not hasattr(self, "_sel"): self._sel = set()
         if idx in self._sel: self._sel.discard(idx)
         else: self._sel.add(idx)
 
-    def _get_sel(self):
-        if not hasattr(self, "_sel"): self._sel = set()
-        return self._sel
-
-    # ── actions ──
+    # ── page actions ──
     def rot_cw(self):
-        for i in self._get_sel():
+        for i in list(self._sel):
             self.page_rots[i] = (self.page_rots.get(i, 0) + 90) % 360
         self._sel.clear(); self._render_thumbs()
 
     def rot_ccw(self):
-        for i in self._get_sel():
+        for i in list(self._sel):
             self.page_rots[i] = (self.page_rots.get(i, 0) - 90) % 360
         self._sel.clear(); self._render_thumbs()
 
     def del_sel(self):
-        self.page_del.update(self._get_sel())
+        self.page_del.update(self._sel)
         self._sel.clear(); self._render_thumbs()
 
     def restore(self):
         self.page_rots.clear(); self.page_del.clear(); self._sel.clear(); self._render_thumbs()
 
-    def insert_blank(self):
-        if not self.doc: return
-        pos = simpledialog.askinteger("Insert Blank", "Insert after page number (0 = beginning):", minvalue=0, maxvalue=len(self.doc), initialvalue=1)
-        if pos is None: return
-        cnt = simpledialog.askinteger("Insert Blank", "How many blank pages?", minvalue=1, maxvalue=100, initialvalue=1)
-        if cnt is None: return
-        new = fitz.open()
-        total = len(self.doc)
-        for i in range(total):
-            if i == pos:
-                for _ in range(cnt):
-                    new.new_page(width=self.doc[0].rect.width, height=self.doc[0].rect.height)
-            if i not in self.page_del:
-                new.insert_pdf(self.doc, from_page=i, to_page=i)
-        if pos == total:
-            for _ in range(cnt):
-                new.new_page(width=self.doc[0].rect.width, height=self.doc[0].rect.height)
-        self.doc.close(); self._set_doc(new, self.doc_path)
-
     def dup_pgs(self):
-        idxs = sorted(self._get_sel())
+        idxs = sorted(self._sel)
         if not idxs: return
         new = fitz.open()
-        total = len(self.doc)
-        for i in range(total):
+        for i in range(len(self.doc)):
             if i not in self.page_del:
                 new.insert_pdf(self.doc, from_page=i, to_page=i)
                 if i in idxs:
                     new.insert_pdf(self.doc, from_page=i, to_page=i)
         self.doc.close(); self._set_doc(new, self.doc_path)
 
+    def insert_blank(self):
+        if not self.doc: return
+        pos = simpledialog.askinteger("Insert Blank", "Insert after page (0 = beginning):", minvalue=0, maxvalue=len(self.doc), initialvalue=1)
+        if pos is None: return
+        cnt = simpledialog.askinteger("Insert Blank", "How many blank pages?", minvalue=1, maxvalue=100, initialvalue=1)
+        if cnt is None: return
+        new = fitz.open()
+        w, h = self.doc[0].rect.width, self.doc[0].rect.height
+        for i in range(len(self.doc)):
+            if i == pos:
+                for _ in range(cnt): new.new_page(width=w, height=h)
+            if i not in self.page_del:
+                new.insert_pdf(self.doc, from_page=i, to_page=i)
+        if pos == len(self.doc):
+            for _ in range(cnt): new.new_page(width=w, height=h)
+        self.doc.close(); self._set_doc(new, self.doc_path)
+
     def mirror_pages(self):
-        self._apply_transform(lambda p: p.set_rotation(p.rotation or 0) or p.add_transform(fitz.Matrix(-1, 1, 0, 0, p.rect.width, 0)))
+        for i in list(self._sel):
+            if i in self.page_del: continue
+            pg = self.doc[i]
+            r = pg.rect
+            pg.add_transform(fitz.Matrix(-1, 1, 0, 0, r.width, 0))
+        self._sel.clear(); self._render_thumbs()
 
     def to_grayscale(self):
         if not self.doc: return
+        path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="grayscale.pdf")
+        if not path: return
+        try:
+            nd = fitz.open()
+            for i in range(len(self.doc)):
+                if i in self.page_del: continue
+                nd.insert_pdf(self.doc, from_page=i, to_page=i)
+            nd.save(path, garbage=4, deflate=True, colorspace=fitz.csGRAY)
+            nd.close()
+            messagebox.showinfo("Done", "Saved grayscale PDF to:\n%s" % path)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def search_pdf(self):
+        if not self.doc: return
+        q = simpledialog.askstring("Search", "Search text:")
+        if not q: return
+        results = []
         for i in range(len(self.doc)):
             if i in self.page_del: continue
-            pix = self.doc[i].get_pixmap(colorspace=fitz.csGRAY)
-            self.doc[i].set_pixmap(pix)
-        self._render_thumbs()
-        messagebox.showinfo("Done", "Converted visible pages to grayscale.")
+            insts = self.doc[i].search_for(q)
+            for r in insts:
+                # Get surrounding text for context
+                ctx = self.doc[i].get_text("text", clip=r).strip()
+                snippet = ctx[:100] if ctx else "(found at %s)" % r
+                results.append("Page %d: ...%s..." % (i + 1, snippet))
+        if results:
+            self._show_search_results(results)
+        else:
+            messagebox.showinfo("Search", "No results found.")
 
-    def _apply_transform(self, fn):
+    def _show_search_results(self, results):
+        top = tk.Toplevel(self.parent)
+        top.title("Search Results")
+        top.geometry("500x350")
+        top.transient(self.parent)
+        f = ttk.Frame(top, padding=8); f.pack(fill="both", expand=True)
+        ttk.Label(f, text="%d result(s):" % len(results)).pack(anchor="w")
+        txt = tk.Text(f, wrap="word", bg=THEME["entry"], fg=THEME["fg"], font=FONT)
+        sc = ttk.Scrollbar(f, orient="vertical", command=txt.yview)
+        txt.configure(yscrollcommand=sc.set)
+        txt.pack(side="left", fill="both", expand=True); sc.pack(side="right", fill="y")
+        txt.insert("1.0", "\n".join(results))
+        txt.configure(state="disabled")
+        ttk.Button(f, text="Close", command=top.destroy).pack(pady=4)
+
+    def goto_page(self):
         if not self.doc: return
-        for i in self._get_sel():
-            if i in self.page_del: continue
-            fn(self.doc[i])
-        self.page_rots.clear(); self._sel.clear(); self._render_thumbs()
+        n = simpledialog.askinteger("Go to Page", "Page number (1-%d):" % len(self.doc), minvalue=1, maxvalue=len(self.doc), initialvalue=1)
+        if not n: return
+        # Scroll canvas to make the nth thumbnail visible
+        target_y = ((n - 1) // max(1, self.canvas.winfo_width() // (THUMB_W + 24))) * (THUMB_H + 50)
+        self.canvas.yview_moveto(target_y / max(1, self.canvas.bbox("all")[3] - self.canvas.winfo_height()))
 
-    # ── extract ──
     def extract_range(self):
         if not self.doc: return
         t = self.ext_var.get().strip()
-        if not t: messagebox.showerror("Error", "Enter page range (e.g. 1,3,5-7)"); return
+        if not t: messagebox.showerror("Error", "Enter page range e.g. 1,3,5-7"); return
         try:
-            pgs = self._prs(t, len(self.doc))
+            pgs = parse_page_range(t, len(self.doc))
         except Exception as e:
             messagebox.showerror("Error", str(e)); return
         out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="extracted.pdf")
@@ -629,7 +664,7 @@ class SplitUI:
         try:
             nd = fitz.open()
             for p in pgs: nd.insert_pdf(self.doc, from_page=p - 1, to_page=p - 1)
-            self._sav(nd, out); nd.close()
+            safe_save(nd, out, self.var_compress.get()); nd.close()
             messagebox.showinfo("Success", "Extracted %d page(s)" % len(pgs))
         except Exception as e:
             messagebox.showerror("Error", "Extraction failed:\n%s" % e)
@@ -674,8 +709,8 @@ class SplitUI:
                 if s > e: continue
                 nd = fitz.open()
                 nd.insert_pdf(self.doc, from_page=s - 1, to_page=e - 1)
-                nd.save(os.path.join(d, ch["title"] + ".pdf"), garbage=1); nd.close()
-            messagebox.showinfo("Success", "Split %d chapters into:\n%s" % (len(chs), d))
+                safe_save(nd, os.path.join(d, ch["title"] + ".pdf"), self.var_compress.get()); nd.close()
+            messagebox.showinfo("Success", "Split %d chapters" % len(chs))
         except Exception as e:
             messagebox.showerror("Error", "Bookmark split failed:\n%s" % e)
 
@@ -694,9 +729,9 @@ class SplitUI:
                     if i not in self.page_del:
                         nd.insert_pdf(self.doc, from_page=i, to_page=i)
                 if len(nd):
-                    nd.save(os.path.join(d, "part_%02d.pdf" % fn), garbage=1); nd.close()
+                    safe_save(nd, os.path.join(d, "part_%02d.pdf" % fn), self.var_compress.get()); nd.close()
                     fn += 1; cnt += 1
-            messagebox.showinfo("Success", "Split into %d files in:\n%s" % (cnt, d))
+            messagebox.showinfo("Success", "Split into %d files" % cnt)
         except Exception as e:
             messagebox.showerror("Error", "Split failed:\n%s" % e)
 
@@ -711,8 +746,8 @@ class SplitUI:
                     if i not in self.page_del and (i % 2) == parity:
                         nd.insert_pdf(self.doc, from_page=i, to_page=i)
                 if len(nd):
-                    nd.save(os.path.join(d, "%s_pages.pdf" % name), garbage=1); nd.close()
-            messagebox.showinfo("Success", "Even/odd split saved to:\n%s" % d)
+                    safe_save(nd, os.path.join(d, "%s_pages.pdf" % name), self.var_compress.get()); nd.close()
+            messagebox.showinfo("Success", "Even/odd saved to:\n%s" % d)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -725,12 +760,15 @@ class SplitUI:
             for pgnum in range(len(self.doc)):
                 if pgnum in self.page_del: continue
                 for img in self.doc[pgnum].get_images():
-                    xref = img[0]
-                    pix = fitz.Pixmap(self.doc, xref)
-                    if pix.n > 4: pix = fitz.Pixmap(fitz.csRGB, pix)
-                    pix.save(os.path.join(d, "img_p%02d_%04d.png" % (pgnum + 1, cnt)))
-                    cnt += 1
-            messagebox.showinfo("Success", "Extracted %d images to:\n%s" % (cnt, d))
+                    try:
+                        xref = img[0]
+                        pix = fitz.Pixmap(self.doc, xref)
+                        if pix.n > 4: pix = fitz.Pixmap(fitz.csRGB, pix)
+                        pix.save(os.path.join(d, "img_p%02d_%04d.png" % (pgnum + 1, cnt)))
+                        cnt += 1
+                    except Exception:
+                        continue
+            messagebox.showinfo("Success", "Extracted %d images" % cnt)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -749,61 +787,21 @@ class SplitUI:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def search_pdf(self):
-        if not self.doc: return
-        q = simpledialog.askstring("Search", "Search text:")
-        if not q: return
-        results = []
-        for i in range(len(self.doc)):
-            if i in self.page_del: continue
-            insts = self.doc[i].search_for(q)
-            for r in insts:
-                results.append("Page %d: %s" % (i + 1, r))
-        if results:
-            messagebox.showinfo("Search Results", "\n".join(results[:50]))
-        else:
-            messagebox.showinfo("Search", "No results found.")
-
-    def goto_page(self):
-        if not self.doc: return
-        n = simpledialog.askinteger("Go to Page", "Page number (1-%d):" % len(self.doc), minvalue=1, maxvalue=len(self.doc), initialvalue=1)
-        if n:
-            messagebox.showinfo("Go to Page", "Page %d selected.\nUse thumbnails to view it." % n)
-
     def save_as(self):
         if not self.doc: return
         out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="output.pdf")
         if not out: return
         try:
             nd = fitz.open()
-            total = len(self.doc)
-            for i in range(total):
+            for i in range(len(self.doc)):
                 if i in self.page_del: continue
                 nd.insert_pdf(self.doc, from_page=i, to_page=i)
                 r = self.page_rots.get(i, 0)
                 if r and len(nd): nd[-1].set_rotation(r)
-            self._sav(nd, out); nd.close()
+            safe_save(nd, out, self.var_compress.get()); nd.close()
             messagebox.showinfo("Success", "Saved to:\n%s" % out)
         except Exception as e:
             messagebox.showerror("Error", "Save failed:\n%s" % e)
-
-    def _sav(self, doc, path):
-        doc.save(path, garbage=4 if self.var_compress.get() else 1, deflate=self.var_compress.get())
-
-    def _prs(self, t, total):
-        r = set()
-        for p in t.replace(" ", "").split(","):
-            if not p: continue
-            if "-" in p:
-                a, b = p.split("-", 1)
-                s, e = int(a), int(b)
-                if s < 1 or e > total: raise ValueError("Range out of bounds")
-                r.update(range(s, e + 1))
-            else:
-                v = int(p)
-                if v < 1 or v > total: raise ValueError("Page out of bounds")
-                r.add(v)
-        return sorted(r)
 
 
 # ═══════════════════════ TOOLS UI ═══════════════════════
@@ -822,14 +820,12 @@ class ToolsUI:
         return b
 
     def _build(self):
-        # Two-column layout
         main = ttk.Frame(self.parent, padding=10)
         main.pack(fill="both", expand=True)
-
         left = ttk.Frame(main); left.pack(side="left", fill="both", expand=True, padx=(0, 6))
         right = ttk.Frame(main); right.pack(side="right", fill="both", expand=True, padx=(6, 0))
 
-        # ── Left Column ──
+        # ── Left ──
         sig = ttk.LabelFrame(left, text="Digital Signature", padding=8)
         sig.pack(fill="x", pady=4)
         ttk.Label(sig, text="Signer:", font=FONT_BOLD).pack(anchor="w")
@@ -862,17 +858,18 @@ class ToolsUI:
         pdfc = ttk.LabelFrame(left, text="PDF Compression", padding=8)
         pdfc.pack(fill="x", pady=4)
         ttk.Label(pdfc, text="Level:").pack(anchor="w")
-        self.pdf_comp_lvl = ttk.Combobox(pdfc, values=["Low (garbage)", "Medium (deflate)", "High (deflate+images)", "Max (full optimize)"], state="readonly", width=30)
+        lvls = ["Low (garbage)", "Medium (deflate)", "High (deflate+images)", "Max (full optimize)"]
+        self.pdf_comp_lvl = ttk.Combobox(pdfc, values=lvls, state="readonly", width=30)
         self.pdf_comp_lvl.set("Medium (deflate)"); self.pdf_comp_lvl.pack(anchor="w", pady=2)
         ttk.Button(pdfc, text="Compress PDF...", command=self.compress_pdf).pack(anchor="w", pady=2)
 
-        # ── Right Column ──
+        # ── Right ──
         conv = ttk.LabelFrame(right, text="Convert & Extract", padding=8)
         conv.pack(fill="x", pady=4)
         ttk.Button(conv, text="Images to PDF...", command=self.images_to_pdf).pack(fill="x", pady=2)
-        ttk.Button(conv, text="Extract Text from PDF...", command=lambda: self._run_on_split("extract_text")).pack(fill="x", pady=2)
-        ttk.Button(conv, text="Extract Images from PDF...", command=lambda: self._run_on_split("extract_images")).pack(fill="x", pady=2)
-        ttk.Button(conv, text="Convert PDF to Grayscale...", command=lambda: self._run_on_split("to_grayscale")).pack(fill="x", pady=2)
+        self._btn(conv, "Extract Text from PDF...", lambda: self._run_split("extract_text"))
+        self._btn(conv, "Extract Images from PDF...", lambda: self._run_split("extract_images"))
+        self._btn(conv, "Convert to Grayscale...", lambda: self._run_split("to_grayscale"))
 
         redact = ttk.LabelFrame(right, text="Security & Cleanup", padding=8)
         redact.pack(fill="x", pady=4)
@@ -883,18 +880,20 @@ class ToolsUI:
 
         misc = ttk.LabelFrame(right, text="Miscellaneous", padding=8)
         misc.pack(fill="x", pady=4)
-        ttk.Button(misc, text="Clone Open PDF x2", command=lambda: self._run_on_split("dup_pgs_all")).pack(fill="x", pady=2)
         ttk.Button(misc, text="Add Page Numbers", command=self.add_page_numbers).pack(fill="x", pady=2)
-        ttk.Button(misc, text="Flatten PDF (merge layers)", command=self.flatten_pdf).pack(fill="x", pady=2)
+        ttk.Button(misc, text="Flatten PDF (annotations)", command=self.flatten_pdf).pack(fill="x", pady=2)
+        self._btn(misc, "Clone Open PDF x2", lambda: self._run_split("dup_pgs"))
 
-    def _run_on_split(self, action):
+    def _btn(self, parent, text, cmd):
+        ttk.Button(parent, text=text, command=cmd).pack(fill="x", pady=2)
+
+    def _run_split(self, method):
         su = self.app.split_ui
         if not su.doc:
             messagebox.showerror("Error", "Open a PDF in the Split tab first.")
             return
-        getattr(su, action)()
+        getattr(su, method)()
 
-    # ── Sign PDF ──
     def sign_pdf(self):
         path = filedialog.askopenfilename(title="Select PDF to sign", filetypes=[("PDF", "*.pdf")])
         if not path: return
@@ -902,7 +901,7 @@ class ToolsUI:
         if not out: return
         try:
             doc = fitz.open(path)
-            signer = self.signer_var.get() or "AYUSH GUPTA"
+            signer = self.signer_var.get().strip() or "AYUSH GUPTA"
             pos = self.sig_pos.get()
             pg_text = self.sig_page.get().strip()
             target_pg = len(doc) - 1 if pg_text.lower() == "last" else max(0, int(pg_text) - 1)
@@ -920,34 +919,19 @@ class ToolsUI:
             }
             x0, y0, x1, y1 = positions.get(pos, positions["Bottom-Right"])
 
-            # Draw signature box with styled text
             shape = pg.new_shape()
             shape.draw_rect(fitz.Rect(x0, y0, x1, y1))
             shape.finish(color=(0.1, 0.3, 0.6), fill=(0.95, 0.95, 1), width=1.5)
-            shape.insert_text(
-                fitz.Point(x0 + 12, y0 + 28),
-                "Digitally Signed",
-                fontsize=10, color=(0.3, 0.3, 0.3),
-            )
-            shape.insert_text(
-                fitz.Point(x0 + 12, y0 + 48),
-                signer,
-                fontsize=14, color=(0.1, 0.3, 0.6),
-            )
-            shape.insert_text(
-                fitz.Point(x0 + 12, y0 + 64),
-                datetime.now().strftime("%Y-%m-%d %H:%M"),
-                fontsize=8, color=(0.5, 0.5, 0.5),
-            )
+            shape.insert_text(fitz.Point(x0 + 12, y0 + 28), "Digitally Signed", fontsize=10, color=(0.3, 0.3, 0.3))
+            shape.insert_text(fitz.Point(x0 + 12, y0 + 48), signer, fontsize=14, color=(0.1, 0.3, 0.6))
+            shape.insert_text(fitz.Point(x0 + 12, y0 + 64), datetime.now().strftime("%Y-%m-%d %H:%M"), fontsize=8, color=(0.5, 0.5, 0.5))
             shape.commit()
-
-            doc.save(out, garbage=4, deflate=True)
+            safe_save(doc, out, True)
             doc.close()
-            messagebox.showinfo("Success", "PDF signed by %s\nSaved to:\n%s" % (signer, out))
+            messagebox.showinfo("Success", "PDF signed by %s" % signer)
         except Exception as e:
             messagebox.showerror("Error", "Sign failed:\n%s" % e)
 
-    # ── Image Compression ──
     def add_images(self):
         ps = filedialog.askopenfilenames(title="Select images", filetypes=[("Images", "*.jpg *.jpeg *.png *.bmp *.webp")])
         self.image_paths.extend(ps)
@@ -955,16 +939,14 @@ class ToolsUI:
 
     def compress_images(self):
         if not self.image_paths:
-            messagebox.showerror("Error", "Add images first.")
-            return
+            messagebox.showerror("Error", "Add images first."); return
         q = self.img_q.get()
-        d = filedialog.askdirectory(title="Output folder for compressed images")
+        d = filedialog.askdirectory(title="Output folder")
         if not d: return
         try:
             from PIL import Image as PILImg
         except ImportError:
-            messagebox.showerror("Error", "Pillow required: pip install Pillow")
-            return
+            messagebox.showerror("Error", "Pillow required: pip install Pillow"); return
         try:
             for path in self.image_paths:
                 img = PILImg.open(path)
@@ -972,11 +954,10 @@ class ToolsUI:
                 out = os.path.join(d, name)
                 if img.mode in ("RGBA", "P"): img = img.convert("RGB")
                 img.save(out, "JPEG", quality=q, optimize=True)
-            messagebox.showinfo("Success", "Compressed %d images to:\n%s" % (len(self.image_paths), d))
+            messagebox.showinfo("Success", "Compressed %d images" % len(self.image_paths))
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Images to PDF ──
     def images_to_pdf(self):
         ps = filedialog.askopenfilenames(title="Select images", filetypes=[("Images", "*.jpg *.jpeg *.png *.bmp *.webp")])
         if not ps: return
@@ -991,11 +972,10 @@ class ToolsUI:
                 page.insert_image(rect, filename=p)
                 img.close()
             doc.save(out, garbage=4); doc.close()
-            messagebox.showinfo("Success", "Created PDF with %d images:\n%s" % (len(ps), out))
+            messagebox.showinfo("Success", "Created PDF with %d images" % len(ps))
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── PDF Compression ──
     def compress_pdf(self):
         path = filedialog.askopenfilename(title="Select PDF to compress", filetypes=[("PDF", "*.pdf")])
         if not path: return
@@ -1004,35 +984,21 @@ class ToolsUI:
         lvl = self.pdf_comp_lvl.get()
         try:
             doc = fitz.open(path)
-            opts = {"garbage": 1, "deflate": False}
-            if "Low" in lvl: opts = {"garbage": 4}
-            elif "Medium" in lvl: opts = {"garbage": 4, "deflate": True}
-            elif "High" in lvl: opts = {"garbage": 4, "deflate": True}
+            opts = {"garbage": 4, "deflate": True}
+            if "Low" in lvl: opts = {"garbage": 4, "deflate": False}
             elif "Max" in lvl: opts = {"garbage": 4, "deflate": True, "linear": True}
-
-            # For High/Max, also downsample images
-            if "High" in lvl or "Max" in lvl:
-                for pgnum in range(len(doc)):
-                    for img in doc[pgnum].get_images():
-                        xref = img[0]
-                        pix = fitz.Pixmap(doc, xref)
-                        if pix.width > 1500:
-                            pix.set_resolution(pix.resolution[0], pix.resolution[1])
-                            doc[pgnum].replace_image(xref, pix)
-
             doc.save(out, **opts)
             orig = os.path.getsize(path)
             comp = os.path.getsize(out)
             pct = (1 - comp / orig) * 100 if orig else 0
             doc.close()
             messagebox.showinfo("Success",
-                "Compressed from %.1f MB to %.1f MB (%.0f%% reduction)\nSaved to:\n%s" % (orig / 1e6, comp / 1e6, pct, out))
+                "Reduced %.1f MB \u2192 %.1f MB (%.0f%%)\n%s" % (orig / 1e6, comp / 1e6, pct, out))
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Redact ──
     def redact_text(self):
-        path = filedialog.askopenfilename(title="Select PDF to redact", filetypes=[("PDF", "*.pdf")])
+        path = filedialog.askopenfilename(title="Select PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
         txt = simpledialog.askstring("Redact Text", "Text to redact (case-sensitive):")
         if not txt: return
@@ -1042,16 +1008,14 @@ class ToolsUI:
             doc = fitz.open(path)
             for pgnum in range(len(doc)):
                 pg = doc[pgnum]
-                insts = pg.search_for(txt)
-                for r in insts:
+                for r in pg.search_for(txt):
                     pg.add_redact_annot(r)
                     pg.apply_redactions()
-            doc.save(out, garbage=4, deflate=True); doc.close()
-            messagebox.showinfo("Success", "Redacted text '%s'\nSaved to:\n%s" % (txt, out))
+            safe_save(doc, out, True); doc.close()
+            messagebox.showinfo("Success", "Redacted '%s'" % txt)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Remove Metadata ──
     def remove_metadata(self):
         path = filedialog.askopenfilename(title="Select PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
@@ -1060,17 +1024,17 @@ class ToolsUI:
         try:
             doc = fitz.open(path)
             doc.set_metadata({})
-            doc.save(out, garbage=4, deflate=True); doc.close()
-            messagebox.showinfo("Success", "Metadata removed.\nSaved to:\n%s" % out)
+            safe_save(doc, out, True); doc.close()
+            messagebox.showinfo("Success", "Metadata removed")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Password Protect ──
     def password_protect(self):
         path = filedialog.askopenfilename(title="Select PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
         pw = simpledialog.askstring("Password", "Enter password to encrypt:", show="*")
-        if not pw: return
+        if not pw or not pw.strip(): return
+        pw = pw.strip()
         pw2 = simpledialog.askstring("Password", "Confirm password:", show="*")
         if pw != pw2: messagebox.showerror("Error", "Passwords don't match"); return
         out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="protected.pdf")
@@ -1079,16 +1043,16 @@ class ToolsUI:
             doc = fitz.open(path)
             doc.save(out, encryption=fitz.PDF_ENCRYPT_AES_256, user_pw=pw, owner_pw=pw, garbage=4, deflate=True)
             doc.close()
-            messagebox.showinfo("Success", "PDF encrypted.\nSaved to:\n%s" % out)
+            messagebox.showinfo("Success", "PDF encrypted")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Remove Password ──
     def remove_password(self):
         path = filedialog.askopenfilename(title="Select encrypted PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
         pw = simpledialog.askstring("Password", "Enter current password:", show="*")
-        if pw is None: return  # Cancel
+        if pw is None: return
+        pw = pw if pw else ""
         out = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], initialfile="decrypted.pdf")
         if not out: return
         try:
@@ -1097,21 +1061,18 @@ class ToolsUI:
                 result = doc.authenticate(pw)
                 if result == 0:
                     messagebox.showerror("Error", "Incorrect password"); doc.close(); return
-                # Verify by checking page count
                 try:
                     _ = doc.page_count
                 except Exception:
-                    messagebox.showerror("Error", "Incorrect password - cannot read content"); doc.close(); return
+                    messagebox.showerror("Error", "Incorrect password - cannot read"); doc.close(); return
             else:
-                messagebox.showinfo("Info", "This PDF is not encrypted.")
-                doc.close(); return
-            doc.save(out, garbage=4, deflate=True)
+                messagebox.showinfo("Info", "This PDF is not encrypted."); doc.close(); return
+            safe_save(doc, out, True)
             doc.close()
-            messagebox.showinfo("Success", "Password removed.\nSaved to:\n%s" % out)
+            messagebox.showinfo("Success", "Password removed")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Add Page Numbers ──
     def add_page_numbers(self):
         path = filedialog.askopenfilename(title="Select PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
@@ -1120,18 +1081,16 @@ class ToolsUI:
         try:
             doc = fitz.open(path)
             for i in range(len(doc)):
-                pg = doc[i]
-                r = pg.rect
+                pg = doc[i]; r = pg.rect
                 shape = pg.new_shape()
                 shape.insert_text(fitz.Point(r.width / 2 - 15, r.height - 20),
                     "- %d -" % (i + 1), fontsize=10, color=(0.4, 0.4, 0.4))
                 shape.commit()
-            doc.save(out, garbage=4, deflate=True); doc.close()
-            messagebox.showinfo("Success", "Page numbers added.\nSaved to:\n%s" % out)
+            safe_save(doc, out, True); doc.close()
+            messagebox.showinfo("Success", "Page numbers added")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ── Flatten PDF ──
     def flatten_pdf(self):
         path = filedialog.askopenfilename(title="Select PDF", filetypes=[("PDF", "*.pdf")])
         if not path: return
@@ -1139,11 +1098,12 @@ class ToolsUI:
         if not out: return
         try:
             doc = fitz.open(path)
-            nd = fitz.open()
-            for i in range(len(doc)):
-                nd.insert_pdf(doc, from_page=i, to_page=i)
-            nd.save(out, garbage=4, deflate=True); nd.close(); doc.close()
-            messagebox.showinfo("Success", "PDF flattened.\nSaved to:\n%s" % out)
+            for pgnum in range(len(doc)):
+                pg = doc[pgnum]
+                for annot in pg.annots():
+                    pg.delete_annot(annot)
+            safe_save(doc, out, True); doc.close()
+            messagebox.showinfo("Success", "Annotations flattened")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
