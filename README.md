@@ -1,9 +1,10 @@
 # PDF Suite Pro
 
 **Creator:** AYUSH GUPTA  
-**Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER
+**Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
+**Version:** v2.2
 
-A full-featured PDF and image utility for **Windows** with a modern dark UI.
+A full-featured PDF utility for **Windows** with a modern dark UI — merge, split, sign, compress, redact, and 30+ tools. No installation needed.
 
 ## Features
 
@@ -11,63 +12,55 @@ A full-featured PDF and image utility for **Windows** with a modern dark UI.
 - Standard PDF merging with per-file page ranges
 - **Alternate merge** — interleave pages from multiple files
 - Insert PDF at specific position
-- Add cover page
-- Duplicate selected files
-- Drag-and-drop reorder
-- Password protect output
-- Compression
+- Add cover page · Duplicate files · Drag-and-drop reorder
+- Password protect · Compression
+- **Threaded** — UI stays responsive during large merges
 
-### Split
-- Split every page to separate files
-- Extract custom page range (e.g. `1,3,5-7`)
-- **Split by bookmarks** (chapters)
-- **Split by page count** (every N pages)
-- **Split even/odd pages** (for duplex scanning)
-- **Extract all images** from PDF
-- **Extract all text** to .txt file
-- Rotate pages (CW/CCW)
-- Delete pages
-- Insert blank pages
-- Duplicate pages
-- Mirror/flip pages
-- Convert to grayscale
-- Search text within PDF
+### Split / Edit
+- Split every page, extract range, split by bookmarks or page count
+- **Split even/odd pages** (duplex scanning)
+- Rotate CW/CCW · Delete · Insert blank · Duplicate pages
+- Mirror/flip pages · Convert to grayscale (new file or in-place)
+- **Undo/Redo** for all page actions
+- **Search text** with thumbnail highlighting (runs in background thread)
+- Extract all images or text from PDF
 - Save As with modifications
 
 ### Tools
-- **Digital Signature** — Sign any PDF with styled "Digitally Signed by AYUSH GUPTA" box with date
-- **Image Compression** — Reduce JPG/PNG file size (adjustable quality 1-100)
-- **Images to PDF** — Combine multiple images into a single PDF
-- **PDF Compression** — 4 levels (Low/Medium/High/Max with image downsampling)
-- **Redact Text** — Permanently remove text from PDF
-- **Remove Metadata** — Strip all author/date/metadata
-- **Password Protect** — AES-256 encrypt PDFs
-- **Remove Password** — Decrypt password-protected PDFs
-- **Add Page Numbers** — Auto-number all pages
-- **Flatten PDF** — Merge all layers/annotations
+- **Digital Signature** — Styled "Digitally Signed by AYUSH GUPTA" box with date
+- **Image Compression** — JPG/PNG quality 1–100
+- **Images to PDF** — Combine multiple images into one PDF
+- **PDF Compression** — 4 levels with image downsampling
+- **Redact Text** — Permanently remove text
+- **Remove Metadata** · **Password Protect** (AES-256) · **Remove Password**
+- **Add Page Numbers** · **Flatten PDF** · **Rate & Review** dialog (1–5 stars)
 
 ## Quick Start
 
-1. Download or build `dist/PDFSuite.exe`
-2. Double-click `PDFSuite.exe` — no installation needed
-3. Right-click → Create shortcut on desktop for quick access
+| Step | Action |
+|------|--------|
+| 1 | Download or build `dist/PDFSuite.exe` |
+| 2 | Double-click — **no installation required** |
+| 3 | Right-click → Create shortcut on desktop |
 
 ## Build from Source
 
 ```bash
-pip install PyMuPDF
+pip install PyMuPDF pyinstaller
 pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
 ```
+
+Output: `dist/PDFSuite.exe`
 
 ## Project Structure
 
 ```
 ├── pdf_tool.py              # Main application source
-├── dist/PDFSuite.exe        # Pre-built executable
+├── dist/PDFSuite.exe        # Pre-built executable (33 MB)
 ├── android/                 # Android app (Kivy)
 ├── requirements.txt
 ├── README.md
-└── INSTALLATION.txt
+└── INSTALL.txt
 ```
 
 ## License

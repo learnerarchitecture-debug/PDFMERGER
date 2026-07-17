@@ -1,12 +1,19 @@
-PDF Merger & Splitter - Quick Install
-======================================
+PDF Suite Pro — Quick Install
+=============================
 
 Full details: INSTALLATION.txt
 
 WINDOWS (Pre-built)
 -------------------
-Double-click: dist/PDFMerger.exe
-Desktop shortcut: right-click -> Create shortcut
+Double-click: dist/PDFSuite.exe
+
+Desktop shortcut: right-click dist/PDFSuite.exe → Create shortcut
+Or run in PowerShell:
+
+  $ws = New-Object -ComObject WScript.Shell
+  $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDFSuite.lnk")
+  $sc.TargetPath = "C:\full\path\to\dist\PDFSuite.exe"
+  $sc.Save()
 
 FROM SOURCE
 -----------
@@ -15,12 +22,15 @@ python pdf_tool.py
 
 BUILD EXE
 ---------
-pip install pyinstaller
-pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
+pip install PyMuPDF pyinstaller
+pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
+
+Output: dist/PDFSuite.exe
 
 ANDROID
 -------
-cd android/ && buildozer android debug
+cd android/
+buildozer android debug
 
 REPO
 ----

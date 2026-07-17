@@ -1,39 +1,47 @@
-PDF Merger & Splitter - Installation Guide
-============================================
+PDF Suite Pro — Installation Guide
+===================================
 
-Option 1: Using the Pre-built Executable (Recommended)
--------------------------------------------------------
+App:     PDF Suite Pro
+Creator: AYUSH GUPTA
+Version: v2.2
+Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
-1. Double-click `dist/PDFMerger.exe` to run.
-   - No installation required.
-   - Portable — runs from any folder.
+
+Option 1: Pre-built Executable (Recommended)
+---------------------------------------------
+
+1. Double-click `dist/PDFSuite.exe` to run.
+   - No installation required — portable, runs from any folder.
 
 2. Create a desktop shortcut:
-   - Right-click `dist/PDFMerger.exe` -> Show more options -> Create shortcut
-   - Or run this in PowerShell:
+   - Right-click `dist/PDFSuite.exe` → Show more options → Create shortcut
+   - Or run in PowerShell:
      ```
      $ws = New-Object -ComObject WScript.Shell
-     $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDFMerger.lnk")
-     $sc.TargetPath = "C:\full\path\to\dist\PDFMerger.exe"
+     $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDFSuite.lnk")
+     $sc.TargetPath = "C:\full\path\to\dist\PDFSuite.exe"
      $sc.Save()
      ```
 
-Option 2: Running from Source (Python)
----------------------------------------
+
+Option 2: Run from Source (Python)
+-----------------------------------
 
 Requirements: Python 3.8+
 
    pip install -r requirements.txt
    python pdf_tool.py
 
-Option 3: Building Your Own Executable
----------------------------------------
+
+Option 3: Build Your Own Executable
+------------------------------------
 
    pip install -r requirements.txt
-   pip install pyinstaller
-   pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
+   pip install PyMuPDF pyinstaller
+   pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
 
-   Output: dist/PDFMerger.exe
+   Output: dist/PDFSuite.exe
+
 
 Option 4: Android App (Build APK)
 ----------------------------------
@@ -44,26 +52,30 @@ Requirements: Linux or WSL with Python 3.8+ and Buildozer.
    pip install buildozer
    buildozer android debug
 
-   Output: android/bin/PDFMerger-*-debug.apk
+   Output: android/bin/PDFSuite-*-debug.apk
+
 
 Dependencies
--------------
+------------
+- PyMuPDF (required)       — PDF engine
+- PyInstaller              — Windows exe build
+- Kivy, Plyer              — Android build
 
-- PyMuPDF  (required) - PDF engine
-- PyInstaller (Windows exe build)
-- Kivy, Plyer (Android build)
 
 Troubleshooting
 ---------------
 
-- "Windows protected your PC":
-  Click "More info" -> "Run anyway" (standard for unsigned exe).
+"Windows protected your PC"
+  Click "More info" → "Run anyway" (standard for unsigned exe).
 
-- Antivirus false positive:
+Antivirus false positive
   Verify at VirusTotal or build from source yourself.
 
-- App doesn't start:
-  Run from cmd to see errors: .\PDFMerger.exe
+App doesn't start
+  Run from cmd to see errors: .\PDFSuite.exe
 
-- "No module named 'fitz'":
+"No module named 'fitz'"
   pip install PyMuPDF
+
+Rate & Review
+  App menu → Rate & Review (1–5 stars). Feedback saved locally.
