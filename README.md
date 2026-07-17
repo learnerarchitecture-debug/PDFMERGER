@@ -1,6 +1,6 @@
 # PDF Merger & Splitter
 
-A Windows desktop application to merge and split PDF files with a simple GUI.
+Merge and split PDF files on **Windows** (desktop app) and **Android** (mobile app).
 
 ## Features
 
@@ -13,48 +13,73 @@ A Windows desktop application to merge and split PDF files with a simple GUI.
 - **Password Protection** — Encrypt output PDFs with AES-256 password
 - **Unlock PDFs** — Open password-protected PDFs
 - **Compress** — Reduce output file size
-- **Dark Mode** — Toggle dark/light theme
+- **Dark Mode** — Toggle dark/light theme (Windows only)
 - **Drag & Drop Reorder** — Reorder files in the merge list by dragging
 - **Recent Files** — Quick access to recently opened PDFs
 
-## Screenshots
+## Desktop (Windows)
 
-*(Add screenshots here)*
-
-## Requirements
-
+### Requirements
 - Windows 10 or later (64-bit)
-- No additional software required — the executable is self-contained
+- No additional software — executable is self-contained
 
-## Installation
-
+### Installation
 See [INSTALLATION.txt](INSTALLATION.txt) for detailed instructions.
 
-## Usage
+### Download
+Pre-built executable: `dist/PDFMerger.exe`
 
-### Merge Tab
-1. Click **Add PDF(s)** to select files
-2. Select a file and enter a **page range** (e.g. `1-5,7,9-12`) or leave as `all`
-3. Drag items to reorder
-4. Set **output filename**, optional **password**, and **compress** option
-5. Click **Merge!**
+### Build from Source
+```bash
+pip install -r requirements.txt
+pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
+```
+Executable will be in `dist/PDFMerger.exe`.
 
-### Split Tab
-1. Click **Open PDF** to load a file
-2. Enter a **password** if the PDF is encrypted, then click **Unlock**
-3. Click thumbnails to **select pages**
-4. Use **Rotate CW/CCW** or **Delete Selected** to modify pages
-5. Choose an action:
-   - **Extract** — Save selected page range to a new file
-   - **Split All Pages** — Save each page as a separate PDF
-   - **Split by Bookmarks** — Save each chapter as a separate PDF
-   - **Save As** — Save the modified document
+---
 
-## Building from Source
+## Android
+
+### Requirements
+- Python 3.8+ with Kivy and Buildozer
+- Linux environment (or WSL) for building the APK
+
+### Build APK
 
 ```bash
-pip install PyMuPDF Pillow pyinstaller
-pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
+# On Linux or WSL:
+cd android/
+pip install buildozer
+buildozer android debug
+
+# APK will be at: android/bin/*.apk
+```
+
+Or build with Docker:
+```bash
+cd android/
+docker run --interactive --tty --rm \
+    --volume "$(pwd):/opt/app" \
+    --workdir /opt/app \
+    kivy/buildozer:latest \
+    buildozer android debug
+```
+
+### Android Usage
+- **Merge tab**: Tap "Add PDF(s)" to select files, set page ranges, tap "MERGE PDFs"
+- **Split tab**: Tap "Open PDF", tap thumbnails to select, use Rotate/Delete, then Extract/Split/Save
+
+## Project Structure
+
+```
+├── pdf_tool.py          # Desktop app (tkinter/PyMuPDF)
+├── dist/PDFMerger.exe   # Pre-built Windows executable
+├── android/
+│   ├── main.py          # Android app (Kivy/PyMuPDF)
+│   └── buildozer.spec   # Buildozer configuration for APK
+├── requirements.txt     # Python dependencies
+├── README.md
+└── INSTALLATION.txt
 ```
 
 ## License
