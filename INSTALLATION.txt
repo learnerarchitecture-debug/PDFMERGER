@@ -23,21 +23,46 @@ Requirements:
 
 Steps:
   1. Install dependencies:
-     pip install PyMuPDF Pillow
+     pip install -r requirements.txt
 
   2. Run the script:
      python pdf_tool.py
+
+  Note: Without Pillow, thumbnails won't display but the app works fully.
 
 Option 3: Building Your Own Executable
 ----------------------------------------
 
   1. Install dependencies including PyInstaller:
-     pip install PyMuPDF Pillow pyinstaller
+     pip install -r requirements.txt
+     pip install pyinstaller
 
   2. Build the executable:
      pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
 
   3. Find the executable in the `dist/` folder.
+
+Option 4: Android App (Build APK)
+----------------------------------
+
+Requirements: Linux or WSL with Python 3.8+ and Buildozer.
+
+  1. Install buildozer:
+     pip install buildozer
+
+  2. Build the APK:
+     cd android/
+     buildozer android debug
+
+  3. APK located at: android/bin/PDFMerger-*-debug.apk
+
+Dependencies
+-------------
+
+- PyMuPDF  (required) - PDF manipulation
+- Pillow   (optional) - page thumbnails
+- PyInstaller (Windows build only)
+- Kivy, Plyer (Android build only)
 
 Troubleshooting
 ---------------
@@ -54,3 +79,10 @@ Troubleshooting
   Ensure you have the latest Windows updates installed.
   Try running from the command line to see error messages:
     .\PDFMerger.exe
+
+- "No module named 'PIL'":
+  Install Pillow: pip install Pillow
+  (Thumbnails won't display without it, but the app works fine.)
+
+- "No module named 'fitz'":
+  Install PyMuPDF: pip install PyMuPDF

@@ -1,12 +1,14 @@
 # PDF Merger & Splitter
 
+**Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER
+
 Merge and split PDF files on **Windows** (desktop app) and **Android** (mobile app).
 
 ## Features
 
 - **Merge PDFs** — Combine multiple PDFs into one, with per-file page range selection
 - **Split PDF** — Split every page into separate files, or extract a custom page range
-- **Page Thumbnails** — Visual preview of all pages
+- **Page Thumbnails** — Visual preview of all pages (requires Pillow)
 - **Rotate Pages** — Rotate selected pages 90° CW or CCW
 - **Delete Pages** — Remove unwanted pages before saving
 - **Split by Bookmarks** — Automatically split chapters using PDF table of contents
@@ -35,6 +37,13 @@ pip install -r requirements.txt
 pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
 ```
 Executable will be in `dist/PDFMerger.exe`.
+
+### Run Directly (no build needed)
+```bash
+pip install -r requirements.txt
+python pdf_tool.py
+```
+> **Note:** Without Pillow, thumbnails won't display but all other features work.
 
 ---
 
@@ -69,18 +78,45 @@ docker run --interactive --tty --rm \
 - **Merge tab**: Tap "Add PDF(s)" to select files, set page ranges, tap "MERGE PDFs"
 - **Split tab**: Tap "Open PDF", tap thumbnails to select, use Rotate/Delete, then Extract/Split/Save
 
+## Usage
+
+### Merge Tab
+1. Click **Add PDF(s)** to select files
+2. Select a file and enter a **page range** (e.g. `1-5,7,9-12`) or leave as `all`
+3. Drag items to reorder
+4. Set **output filename**, optional **password**, and **compress** option
+5. Click **Merge!**
+
+### Split Tab
+1. Click **Open PDF** to load a file
+2. Click thumbnails to **select pages**
+3. Use **Rotate CW/CCW** or **Delete Selected** to modify pages
+4. Choose an action:
+   - **Extract** — Save selected page range to a new file
+   - **Split All Pages** — Save each page as a separate PDF
+   - **Split by Bookmarks** — Save each chapter as a separate PDF
+   - **Save As** — Save the modified document
+
 ## Project Structure
 
 ```
-├── pdf_tool.py          # Desktop app (tkinter/PyMuPDF)
-├── dist/PDFMerger.exe   # Pre-built Windows executable
+├── pdf_tool.py              # Desktop app (tkinter/PyMuPDF)
+├── dist/PDFMerger.exe       # Pre-built Windows executable
 ├── android/
-│   ├── main.py          # Android app (Kivy/PyMuPDF)
-│   └── buildozer.spec   # Buildozer configuration for APK
-├── requirements.txt     # Python dependencies
+│   ├── main.py              # Android app (Kivy/PyMuPDF)
+│   └── buildozer.spec        # Buildozer configuration for APK
+├── requirements.txt         # Python dependencies
 ├── README.md
 └── INSTALLATION.txt
 ```
+
+## Dependencies
+
+- **PyMuPDF** (fitz) — PDF reading, writing, rendering
+- **Pillow** (optional) — Thumbnail image generation
+- **PyInstaller** (build only) — Package Windows executable
+- **Kivy** (Android only) — Mobile UI framework
+- **Plyer** (Android only) — Native file picker
 
 ## License
 
