@@ -4,85 +4,66 @@ PDF Merger & Splitter - Installation Guide
 Option 1: Using the Pre-built Executable (Recommended)
 -------------------------------------------------------
 
-1. Locate the `dist/PDFMerger.exe` file in the project folder.
-
-2. Double-click `PDFMerger.exe` to run the application.
+1. Double-click `dist/PDFMerger.exe` to run.
    - No installation required.
-   - The app runs as a portable executable from any location.
+   - Portable — runs from any folder.
 
-3. (Optional) Create a shortcut:
-   - Right-click `PDFMerger.exe` -> Create shortcut
-   - Move the shortcut to your desktop or Start Menu
+2. Create a desktop shortcut:
+   - Right-click `dist/PDFMerger.exe` -> Show more options -> Create shortcut
+   - Or run this in PowerShell:
+     ```
+     $ws = New-Object -ComObject WScript.Shell
+     $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDFMerger.lnk")
+     $sc.TargetPath = "C:\full\path\to\dist\PDFMerger.exe"
+     $sc.Save()
+     ```
 
-Option 2: Running from Source (Advanced)
------------------------------------------
+Option 2: Running from Source (Python)
+---------------------------------------
 
-Requirements:
-  - Python 3.8 or later
-  - Windows, macOS, or Linux
+Requirements: Python 3.8+
 
-Steps:
-  1. Install dependencies:
-     pip install -r requirements.txt
-
-  2. Run the script:
-     python pdf_tool.py
-
-  Note: Without Pillow, thumbnails won't display but the app works fully.
+   pip install -r requirements.txt
+   python pdf_tool.py
 
 Option 3: Building Your Own Executable
-----------------------------------------
+---------------------------------------
 
-  1. Install dependencies including PyInstaller:
-     pip install -r requirements.txt
-     pip install pyinstaller
+   pip install -r requirements.txt
+   pip install pyinstaller
+   pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
 
-  2. Build the executable:
-     pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
-
-  3. Find the executable in the `dist/` folder.
+   Output: dist/PDFMerger.exe
 
 Option 4: Android App (Build APK)
 ----------------------------------
 
 Requirements: Linux or WSL with Python 3.8+ and Buildozer.
 
-  1. Install buildozer:
-     pip install buildozer
+   cd android/
+   pip install buildozer
+   buildozer android debug
 
-  2. Build the APK:
-     cd android/
-     buildozer android debug
-
-  3. APK located at: android/bin/PDFMerger-*-debug.apk
+   Output: android/bin/PDFMerger-*-debug.apk
 
 Dependencies
 -------------
 
-- PyMuPDF  (required) - PDF manipulation
-- Pillow   (optional) - page thumbnails
-- PyInstaller (Windows build only)
-- Kivy, Plyer (Android build only)
+- PyMuPDF  (required) - PDF engine
+- PyInstaller (Windows exe build)
+- Kivy, Plyer (Android build)
 
 Troubleshooting
 ---------------
 
-- "Windows protected your PC" / SmartScreen:
-  Click "More info" -> "Run anyway". This is a standard warning for
-  unsigned executables built with PyInstaller.
+- "Windows protected your PC":
+  Click "More info" -> "Run anyway" (standard for unsigned exe).
 
 - Antivirus false positive:
-  Some antivirus software may flag PyInstaller-built executables.
-  You can verify the file at VirusTotal or build from source yourself.
+  Verify at VirusTotal or build from source yourself.
 
-- The app does not start:
-  Ensure you have the latest Windows updates installed.
-  Try running from the command line to see error messages:
-    .\PDFMerger.exe
-
-- "No module named 'PIL'":
-  Install Pillow: pip install Pillow
-  (Thumbnails won't display without it, but the app works fine.)
+- App doesn't start:
+  Run from cmd to see errors: .\PDFMerger.exe
 
 - "No module named 'fitz'":
-  Install PyMuPDF: pip install PyMuPDF
+  pip install PyMuPDF

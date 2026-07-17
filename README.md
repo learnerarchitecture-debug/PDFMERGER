@@ -8,7 +8,7 @@ Merge and split PDF files on **Windows** (desktop app) and **Android** (mobile a
 
 - **Merge PDFs** — Combine multiple PDFs into one, with per-file page range selection
 - **Split PDF** — Split every page into separate files, or extract a custom page range
-- **Page Thumbnails** — Visual preview of all pages (requires Pillow)
+- **Page Thumbnails** — Visual preview of all pages
 - **Rotate Pages** — Rotate selected pages 90° CW or CCW
 - **Delete Pages** — Remove unwanted pages before saving
 - **Split by Bookmarks** — Automatically split chapters using PDF table of contents
@@ -19,6 +19,11 @@ Merge and split PDF files on **Windows** (desktop app) and **Android** (mobile a
 - **Drag & Drop Reorder** — Reorder files in the merge list by dragging
 - **Recent Files** — Quick access to recently opened PDFs
 
+## Quick Start (Windows)
+
+1. Double-click `dist/PDFMerger.exe` — no installation needed
+2. Or right-click `dist/PDFMerger.exe` → **Create shortcut** on desktop
+
 ## Desktop (Windows)
 
 ### Requirements
@@ -28,22 +33,17 @@ Merge and split PDF files on **Windows** (desktop app) and **Android** (mobile a
 ### Installation
 See [INSTALLATION.txt](INSTALLATION.txt) for detailed instructions.
 
-### Download
-Pre-built executable: `dist/PDFMerger.exe`
-
 ### Build from Source
 ```bash
 pip install -r requirements.txt
 pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
 ```
-Executable will be in `dist/PDFMerger.exe`.
 
 ### Run Directly (no build needed)
 ```bash
 pip install -r requirements.txt
 python pdf_tool.py
 ```
-> **Note:** Without Pillow, thumbnails won't display but all other features work.
 
 ---
 
@@ -54,29 +54,18 @@ python pdf_tool.py
 - Linux environment (or WSL) for building the APK
 
 ### Build APK
-
 ```bash
-# On Linux or WSL:
 cd android/
 pip install buildozer
 buildozer android debug
-
-# APK will be at: android/bin/*.apk
+# APK: android/bin/*.apk
 ```
 
-Or build with Docker:
+Or with Docker:
 ```bash
 cd android/
-docker run --interactive --tty --rm \
-    --volume "$(pwd):/opt/app" \
-    --workdir /opt/app \
-    kivy/buildozer:latest \
-    buildozer android debug
+docker run --rm -v "$(pwd):/opt/app" -w /opt/app kivy/buildozer:latest buildozer android debug
 ```
-
-### Android Usage
-- **Merge tab**: Tap "Add PDF(s)" to select files, set page ranges, tap "MERGE PDFs"
-- **Split tab**: Tap "Open PDF", tap thumbnails to select, use Rotate/Delete, then Extract/Split/Save
 
 ## Usage
 
@@ -91,32 +80,27 @@ docker run --interactive --tty --rm \
 1. Click **Open PDF** to load a file
 2. Click thumbnails to **select pages**
 3. Use **Rotate CW/CCW** or **Delete Selected** to modify pages
-4. Choose an action:
-   - **Extract** — Save selected page range to a new file
-   - **Split All Pages** — Save each page as a separate PDF
-   - **Split by Bookmarks** — Save each chapter as a separate PDF
-   - **Save As** — Save the modified document
+4. Choose: **Extract** | **Split All** | **Split by Bookmarks** | **Save As**
 
 ## Project Structure
 
 ```
-├── pdf_tool.py              # Desktop app (tkinter/PyMuPDF)
+├── pdf_tool.py              # Desktop app source (tkinter/PyMuPDF)
 ├── dist/PDFMerger.exe       # Pre-built Windows executable
 ├── android/
 │   ├── main.py              # Android app (Kivy/PyMuPDF)
-│   └── buildozer.spec        # Buildozer configuration for APK
+│   └── buildozer.spec       # Buildozer configuration
 ├── requirements.txt         # Python dependencies
 ├── README.md
-└── INSTALLATION.txt
+├── INSTALLATION.txt         # Full installation guide
+└── INSTALL.txt              # Quick install reference
 ```
 
 ## Dependencies
 
 - **PyMuPDF** (fitz) — PDF reading, writing, rendering
-- **Pillow** (optional) — Thumbnail image generation
 - **PyInstaller** (build only) — Package Windows executable
-- **Kivy** (Android only) — Mobile UI framework
-- **Plyer** (Android only) — Native file picker
+- **Kivy + Plyer** (Android only) — Mobile UI & file picker
 
 ## License
 

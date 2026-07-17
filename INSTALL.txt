@@ -1,31 +1,27 @@
 PDF Merger & Splitter - Quick Install
 ======================================
 
-For full installation details, see INSTALLATION.txt
+Full details: INSTALLATION.txt
 
 WINDOWS (Pre-built)
 -------------------
-Run: dist/PDFMerger.exe
-  (Double-click, no installation needed)
+Double-click: dist/PDFMerger.exe
+Desktop shortcut: right-click -> Create shortcut
 
-WINDOWS / MAC / LINUX (from source)
-------------------------------------
-1. pip install -r requirements.txt
-2. python pdf_tool.py
+FROM SOURCE
+-----------
+pip install -r requirements.txt
+python pdf_tool.py
 
-BUILD WINDOWS EXE
-------------------
+BUILD EXE
+---------
 pip install pyinstaller
 pyinstaller --onefile --noconsole --name "PDFMerger" --hidden-import fitz pdf_tool.py
 
-ANDROID (build APK)
--------------------
-cd android/
-buildozer android debug
+ANDROID
+-------
+cd android/ && buildozer android debug
 
-DEPENDENCIES
--------------
-PyMuPDF     - required (PDF engine)
-Pillow      - optional (page thumbnails)
-
-For issues, visit: https://github.com/learnerarchitecture-debug/PDFMERGER
+REPO
+----
+https://github.com/learnerarchitecture-debug/PDFMERGER
