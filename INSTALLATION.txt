@@ -10,16 +10,16 @@ Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 Option 1: Pre-built Executable (Recommended)
 ---------------------------------------------
 
-1. Double-click `dist/PDFSuite.exe` to run.
+1. Double-click `PDF Suite Pro.exe` to run.
    - No installation required — portable, runs from any folder.
 
 2. Create a desktop shortcut:
-   - Right-click `dist/PDFSuite.exe` → Show more options → Create shortcut
+   - Right-click `PDF Suite Pro.exe` → Show more options → Create shortcut
    - Or run in PowerShell:
      ```
      $ws = New-Object -ComObject WScript.Shell
-     $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDFSuite.lnk")
-     $sc.TargetPath = "C:\full\path\to\dist\PDFSuite.exe"
+     $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDF Suite Pro.lnk")
+     $sc.TargetPath = "C:\full\path\to\PDF Suite Pro.exe"
      $sc.Save()
      ```
 
@@ -38,9 +38,9 @@ Option 3: Build Your Own Executable
 
    pip install -r requirements.txt
    pip install PyMuPDF pyinstaller
-   pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
+   pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
 
-   Output: dist/PDFSuite.exe
+   Output: dist/PDF Suite Pro.exe
 
 
 Option 4: Android App (Build APK)
@@ -58,6 +58,7 @@ Requirements: Linux or WSL with Python 3.8+ and Buildozer.
 Dependencies
 ------------
 - PyMuPDF (required)       — PDF engine
+- Pillow                   — Image compression
 - PyInstaller              — Windows exe build
 - Kivy, Plyer              — Android build
 
@@ -72,7 +73,7 @@ Antivirus false positive
   Verify at VirusTotal or build from source yourself.
 
 App doesn't start
-  Run from cmd to see errors: .\PDFSuite.exe
+  Run from cmd to see errors: .\PDF Suite Pro.exe
 
 "No module named 'fitz'"
   pip install PyMuPDF

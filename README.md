@@ -35,32 +35,38 @@ A full-featured PDF utility for **Windows** with a modern dark UI — merge, spl
 - **Remove Metadata** · **Password Protect** (AES-256) · **Remove Password**
 - **Add Page Numbers** · **Flatten PDF** · **Rate & Review** dialog (1–5 stars)
 
+### Android
+- Merge & split PDFs on your phone (Kivy-based APK)
+
 ## Quick Start
 
 | Step | Action |
 |------|--------|
-| 1 | Download or build `dist/PDFSuite.exe` |
+| 1 | Download `PDF Suite Pro.exe` from the repo |
 | 2 | Double-click — **no installation required** |
 | 3 | Right-click → Create shortcut on desktop |
 
 ## Build from Source
 
 ```bash
-pip install PyMuPDF pyinstaller
-pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
+pip install -r requirements.txt
+pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
 ```
 
-Output: `dist/PDFSuite.exe`
+Output: `dist/PDF Suite Pro.exe`
 
 ## Project Structure
 
 ```
-├── pdf_tool.py              # Main application source
-├── dist/PDFSuite.exe        # Pre-built executable (33 MB)
+├── pdf_tool.py              # Main application source (Tkinter)
+├── PDF Suite Pro.exe        # Pre-built executable (40 MB)
 ├── android/                 # Android app (Kivy)
+│   ├── main.py
+│   └── buildozer.spec
 ├── requirements.txt
-├── README.md
-└── INSTALL.txt
+├── INSTALL.txt
+├── INSTALLATION.txt
+└── README.md
 ```
 
 ## License

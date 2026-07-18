@@ -5,14 +5,14 @@ Full details: INSTALLATION.txt
 
 WINDOWS (Pre-built)
 -------------------
-Double-click: dist/PDFSuite.exe
+Double-click: PDF Suite Pro.exe
 
-Desktop shortcut: right-click dist/PDFSuite.exe → Create shortcut
+Desktop shortcut: right-click PDF Suite Pro.exe → Create shortcut
 Or run in PowerShell:
 
   $ws = New-Object -ComObject WScript.Shell
-  $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDFSuite.lnk")
-  $sc.TargetPath = "C:\full\path\to\dist\PDFSuite.exe"
+  $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDF Suite Pro.lnk")
+  $sc.TargetPath = "C:\full\path\to\PDF Suite Pro.exe"
   $sc.Save()
 
 FROM SOURCE
@@ -22,10 +22,11 @@ python pdf_tool.py
 
 BUILD EXE
 ---------
-pip install PyMuPDF pyinstaller
-pyinstaller --onefile --noconsole --name "PDFSuite" --hidden-import fitz pdf_tool.py
+pip install -r requirements.txt
+pip install pyinstaller
+pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
 
-Output: dist/PDFSuite.exe
+Output: dist/PDF Suite Pro.exe
 
 ANDROID
 -------

@@ -1,6 +1,7 @@
 dist/
 build/
 *.spec
+!android/buildozer.spec
 __pycache__/
 *.pyc
 *.pyo
