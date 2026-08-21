@@ -55,15 +55,20 @@ MAX_RECENT = 15
 
 # Modern enhanced theme with better contrast and modern colors
 THEME = {
-    "bg": "#0f0f23", "fg": "#e0e0e8",
-    "accent": "#bb86fc", "accent2": "#03dac6",
-    "frame": "#1a1a2e", "entry": "#16213e", "button": "#16213e",
-    "button_hover": "#1e3a5f", "tab_bg": "#16213e", "tab_fg": "#e0e0e8",
-    "tab_sel": "#bb86fc", "notebook_bg": "#0f0f23", "canvas_bg": "#1a1a2e",
+    "bg": "#0a0a1a", "fg": "#e8e8f0",
+    "accent": "#7c5cff", "accent2": "#00e5d4",
+    "frame": "#15152a", "entry": "#1f1f3d", "button": "#1f1f3d",
+    "button_hover": "#2a2a55", "tab_bg": "#1f1f3d", "tab_fg": "#e8e8f0",
+    "tab_sel": "#7c5cff", "notebook_bg": "#0a0a1a", "canvas_bg": "#15152a",
+    "success": "#00e676", "warning": "#ff9800", "danger": "#ff5252",
+    "selection": "#3d3d75", "hover": "#2a2a55",
+    "border": "#3d3d75", "shadow": "#050510",
 }
 FONT = ("Segoe UI", 10)
 FONT_BOLD = ("Segoe UI", 10, "bold")
 FONT_SM = ("Segoe UI", 9)
+FONT_LARGE = ("Segoe UI", 12, "bold")
+FONT_TITLE = ("Segoe UI", 14, "bold")
 
 # Windows DPI awareness for high-resolution screens
 try:
@@ -279,9 +284,9 @@ class ReorderListbox(tk.Listbox):
 class PDFSuite:
     def __init__(self, root):
         self.root = root
-        self.root.title(APP_NAME)
-        self.root.geometry("960x720")
-        self.root.minsize(800, 550)
+        self.root.title(APP_NAME + " - v2.3")
+        self.root.geometry("1100x750")
+        self.root.minsize(900, 600)
         self.root.configure(bg=THEME["bg"])
 
         self.settings = load_settings()
@@ -289,21 +294,46 @@ class PDFSuite:
 
         self._apply_theme()
         self._build_menu()
+        
+        # Header banner
+        self._build_header()
+        
         self.notebook = ttk.Notebook(root)
-        self.notebook.pack(fill="both", expand=True, padx=8, pady=8)
+        self.notebook.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
         self.tab_merge = ttk.Frame(self.notebook)
         self.tab_split = ttk.Frame(self.notebook)
         self.tab_tools = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_merge, text="  Merge  ")
-        self.notebook.add(self.tab_split, text="  Split  ")
-        self.notebook.add(self.tab_tools, text="  Tools  ")
+        self.notebook.add(self.tab_merge, text="  📄 Merge  ")
+        self.notebook.add(self.tab_split, text="  ✂️ Split & Edit  ")
+        self.notebook.add(self.tab_tools, text="  🔧 Tools  ")
 
         self.merge_ui = MergeUI(self.tab_merge, self)
         self.split_ui = SplitUI(self.tab_split, self)
         self.tools_ui = ToolsUI(self.tab_tools, self)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _build_header(self):
+        """Build a beautiful header banner"""
+        header = tk.Frame(self.root, bg=THEME["frame"], height=70)
+        header.pack(fill="x", padx=12, pady=(12, 6))
+        header.pack_propagate(False)
+        
+        title_frame = tk.Frame(header, bg=THEME["frame"])
+        title_frame.pack(side="left", padx=20, pady=10)
+        
+        tk.Label(title_frame, text="PDF Suite Pro", font=("Segoe UI", 18, "bold"),
+                bg=THEME["frame"], fg=THEME["accent"]).pack(anchor="w")
+        tk.Label(title_frame, text="v2.3 - Modern PDF Tool for Windows", font=("Segoe UI", 9),
+                bg=THEME["frame"], fg=THEME["accent2"]).pack(anchor="w")
+        
+        stats_frame = tk.Frame(header, bg=THEME["frame"])
+        stats_frame.pack(side="right", padx=20, pady=10)
+        tk.Label(stats_frame, text="✨ 30+ Tools", font=("Segoe UI", 10, "bold"),
+                bg=THEME["frame"], fg=THEME["accent2"]).pack(anchor="e")
+        tk.Label(stats_frame, text="Merge • Split • Sign • Compress", font=("Segoe UI", 8),
+                bg=THEME["frame"], fg=THEME["fg"]).pack(anchor="e")
 
     def _apply_theme(self):
         c = THEME
@@ -313,21 +343,24 @@ class PDFSuite:
         style.configure("TFrame", background=c["bg"])
         style.configure("TLabel", background=c["bg"], foreground=c["fg"], font=FONT)
         style.configure("TNotebook", background=c["notebook_bg"])
-        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[12, 4], font=FONT_BOLD)
-        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#0f0f23")])
-        style.configure("TButton", background=c["button"], foreground=c["fg"], bordercolor=c["accent"], focuscolor="none", font=FONT)
+        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[18, 8], font=FONT_BOLD)
+        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#0a0a1a")])
+        style.configure("TButton", background=c["button"], foreground=c["fg"], bordercolor=c["accent"], focuscolor="none", font=FONT, padding=[8, 4])
         style.map("TButton", background=[("active", c["button_hover"])], foreground=[("active", c["fg"])])
-        style.configure("TEntry", fieldbackground=c["entry"], foreground=c["fg"], insertcolor=c["fg"])
-        style.configure("TLabelframe", background=c["bg"], foreground=c["fg"])
-        style.configure("TLabelframe.Label", background=c["bg"], foreground=c["fg"], font=FONT_BOLD)
-        style.configure("Vertical.TScrollbar", background=c["button"], troughcolor=c["bg"])
-        style.configure("Horizontal.TScrollbar", background=c["button"], troughcolor=c["bg"])
-        style.configure("TCheckbutton", background=c["bg"], foreground=c["fg"])
+        style.configure("TEntry", fieldbackground=c["entry"], foreground=c["fg"], insertcolor=c["fg"], bordercolor=c["border"])
+        style.configure("TLabelframe", background=c["bg"], foreground=c["accent"], bordercolor=c["border"])
+        style.configure("TLabelframe.Label", background=c["bg"], foreground=c["accent2"], font=FONT_BOLD)
+        style.configure("Vertical.TScrollbar", background=c["button"], troughcolor=c["bg"], bordercolor=c["border"])
+        style.configure("Horizontal.TScrollbar", background=c["button"], troughcolor=c["bg"], bordercolor=c["border"])
+        style.configure("TCheckbutton", background=c["bg"], foreground=c["fg"], focuscolor="none")
         style.map("TCheckbutton", background=[("active", c["bg"])])
         # Configure custom styles for modern controls
-        style.configure("Accent.TButton", background=c["accent"], foreground="#0f0f23", font=FONT_BOLD)
-        style.map("Accent.TButton", background=[("active", c["accent2"])], foreground=[("active", "#0f0f23")])
-        style.configure("Danger.TButton", background="#ef4444", foreground="#fff")
+        style.configure("Accent.TButton", background=c["accent"], foreground="#0a0a1a", font=FONT_BOLD, padding=[10, 6])
+        style.map("Accent.TButton", background=[("active", c["accent2"])], foreground=[("active", "#0a0a1a")])
+        style.configure("Danger.TButton", background=c["danger"], foreground="#fff", font=FONT_BOLD, padding=[10, 6])
+        style.configure("Success.TButton", background=c["success"], foreground="#0a0a1a", font=FONT_BOLD, padding=[10, 6])
+        style.configure("Title.TLabel", background=c["bg"], foreground=c["accent"], font=FONT_TITLE)
+        style.configure("Header.TLabel", background=c["bg"], foreground=c["accent2"], font=FONT_LARGE)
 
     def _build_menu(self):
         mb = tk.Menu(self.root, bg=THEME["frame"], fg=THEME["fg"], activebackground=THEME["accent"])
@@ -419,10 +452,25 @@ class MergeUI:
         f = ttk.Frame(self.parent, padding=8)
         f.pack(fill="both", expand=True)
         tb = ttk.Frame(f); tb.pack(fill="x", pady=4)
+        
+        # File management section
+        file_f = ttk.LabelFrame(tb, text="Files", padding=4)
+        file_f.pack(side="left", padx=4, fill="y")
         for t, c in [("+ Add PDFs", self.add_files), ("Remove", self.rem_sel),
-                     ("Clear", self.clear_all), ("Duplicate Selected", self.dup_sel)]:
-            ttk.Button(tb, text=t, command=c).pack(side="left", padx=3)
-        ttk.Label(tb, text="  Page range:").pack(side="left", padx=(20, 2))
+                     ("Clear", self.clear_all), ("Duplicate", self.dup_sel)]:
+            ttk.Button(file_f, text=t, command=c).pack(side="left", padx=2)
+        
+        # File reorder section
+        reorder_f = ttk.LabelFrame(tb, text="Reorder Files", padding=4)
+        reorder_f.pack(side="left", padx=4, fill="y")
+        ttk.Button(reorder_f, text="↑ Up", command=self.move_file_up, width=8).pack(side="left", padx=2)
+        ttk.Button(reorder_f, text="↓ Down", command=self.move_file_down, width=8).pack(side="left", padx=2)
+        ttk.Button(reorder_f, text="⇡ Top", command=self.move_file_top, width=8).pack(side="left", padx=2)
+        ttk.Button(reorder_f, text="⇣ Bottom", command=self.move_file_bottom, width=8).pack(side="left", padx=2)
+        
+        ttk.Separator(tb, orient="vertical").pack(side="left", fill="y", padx=6)
+        
+        ttk.Label(tb, text="Page range:").pack(side="left", padx=(10, 2))
         self.rng_var = tk.StringVar(value="all")
         ttk.Entry(tb, textvariable=self.rng_var, width=14).pack(side="left", padx=2)
         ttk.Button(tb, text="Apply", command=self.apply_range).pack(side="left", padx=2)
@@ -493,6 +541,57 @@ class MergeUI:
             f = self.files[i]
             self.files.insert(i + 1, dict(f))
             self.lb.insert(i + 1, os.path.basename(f["path"]) + "  [%s]" % f["pages"])
+
+    def _move_file(self, direction):
+        """Move selected file by direction (-1 = up, 1 = down)"""
+        sel = self.lb.curselection()
+        if not sel or not self.files: return
+        i = sel[0]
+        new_i = i + direction
+        if new_i < 0 or new_i >= len(self.files): return
+        self.files[i], self.files[new_i] = self.files[new_i], self.files[i]
+        item_i = self.lb.get(i)
+        item_j = self.lb.get(new_i)
+        self.lb.delete(i)
+        self.lb.insert(i, item_j)
+        self.lb.delete(new_i)
+        self.lb.insert(new_i, item_i)
+        self.lb.selection_set(new_i)
+        self.lb.activate(new_i)
+
+    def move_file_up(self):
+        self._move_file(-1)
+
+    def move_file_down(self):
+        self._move_file(1)
+
+    def move_file_top(self):
+        sel = self.lb.curselection()
+        if not sel or not self.files: return
+        i = sel[0]
+        if i == 0: return
+        item = self.lb.get(i)
+        f = self.files[i]
+        self.files.pop(i)
+        self.lb.delete(i)
+        self.files.insert(0, f)
+        self.lb.insert(0, item)
+        self.lb.selection_set(0)
+        self.lb.activate(0)
+
+    def move_file_bottom(self):
+        sel = self.lb.curselection()
+        if not sel or not self.files: return
+        i = sel[0]
+        if i == len(self.files) - 1: return
+        item = self.lb.get(i)
+        f = self.files[i]
+        self.files.pop(i)
+        self.lb.delete(i)
+        self.files.append(f)
+        self.lb.insert("end", item)
+        self.lb.selection_set("end")
+        self.lb.activate("end")
 
     def insert_at_page(self):
         if not self.files:
@@ -638,17 +737,42 @@ class SplitUI:
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.cw, width=e.width))
 
         af = ttk.Frame(f); af.pack(fill="x", pady=4)
+        
+        # Page reorder section
+        reorder_f = ttk.LabelFrame(af, text="Page Order", padding=4)
+        reorder_f.pack(side="left", padx=4, fill="y")
+        ttk.Button(reorder_f, text="↑ Move Up", command=self.move_up, width=12).pack(side="left", padx=2)
+        ttk.Button(reorder_f, text="↓ Move Down", command=self.move_down, width=12).pack(side="left", padx=2)
+        ttk.Button(reorder_f, text="↑ Top", command=self.move_top, width=10).pack(side="left", padx=2)
+        ttk.Button(reorder_f, text="↓ Bottom", command=self.move_bottom, width=10).pack(side="left", padx=2)
+        
+        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
+        
+        # Page transform section
+        transform_f = ttk.LabelFrame(af, text="Transform", padding=4)
+        transform_f.pack(side="left", padx=4, fill="y")
         for t, c in [("Rotate CW", self.rot_cw), ("Rotate CCW", self.rot_ccw),
-                     ("Delete", self.del_sel), ("Restore All", self.restore)]:
-            ttk.Button(af, text=t, command=c).pack(side="left", padx=2)
+                     ("Mirror", self.mirror_pages), ("Grayscale", self.to_grayscale)]:
+            ttk.Button(transform_f, text=t, command=c).pack(side="left", padx=2)
+        
         ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
-        self.undo_btn = ttk.Button(af, text="Undo", command=self.undo, state="disabled")
+        
+        # Page edit section
+        edit_f = ttk.LabelFrame(af, text="Edit Pages", padding=4)
+        edit_f.pack(side="left", padx=4, fill="y")
+        for t, c in [("Delete", self.del_sel), ("Restore All", self.restore),
+                     ("Insert Blank", self.insert_blank), ("Duplicate", self.dup_pgs)]:
+            ttk.Button(edit_f, text=t, command=c).pack(side="left", padx=2)
+        
+        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
+        
+        # Undo/Redo section
+        undo_f = ttk.LabelFrame(af, text="History", padding=4)
+        undo_f.pack(side="left", padx=4, fill="y")
+        self.undo_btn = ttk.Button(undo_f, text="↶ Undo", command=self.undo, state="disabled", width=10)
         self.undo_btn.pack(side="left", padx=2)
-        self.redo_btn = ttk.Button(af, text="Redo", command=self.redo, state="disabled")
+        self.redo_btn = ttk.Button(undo_f, text="↷ Redo", command=self.redo, state="disabled", width=10)
         self.redo_btn.pack(side="left", padx=2)
-        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
-        for t, c in [("Insert Blank", self.insert_blank), ("Duplicate", self.dup_pgs)]:
-            ttk.Button(af, text=t, command=c).pack(side="left", padx=2)
 
         bf = ttk.Frame(f); bf.pack(fill="x", pady=4)
         ttk.Label(bf, text="Extract:").pack(side="left", padx=2)
@@ -707,13 +831,14 @@ class SplitUI:
     def _render_thumbs(self):
         self._clear_thumbs()
         if not self.doc: return
-        cols = max(1, self.canvas.winfo_width() // (THUMB_W + 24))
+        cols = max(1, self.canvas.winfo_width() // (THUMB_W + 32))
         rf = None; rc = 0
         for i in range(len(self.doc)):
             if rc % cols == 0:
-                rf = ttk.Frame(self.tc); rf.pack(fill="x", pady=4)
+                rf = ttk.Frame(self.tc); rf.pack(fill="x", pady=6)
             rc += 1
-            f2 = ttk.Frame(rf); f2.pack(side="left", padx=8)
+            f2 = tk.Frame(rf, bg=THEME["canvas_bg"], highlightthickness=2, highlightbackground=THEME["border"])
+            f2.pack(side="left", padx=8, pady=4)
             pg = self.doc[i]
             mat = fitz.Matrix(THUMB_W / pg.rect.width, THUMB_H / pg.rect.height)
             pix = pg.get_pixmap(matrix=mat)
@@ -723,11 +848,36 @@ class SplitUI:
             photo = tk.PhotoImage(file=tmp.name)
             self.page_images.append(photo)
             sel = i in self._sel; hilite = i in self._search_highlights
-            bg = THEME["accent"] if sel else ("#f1c40f" if hilite else THEME["canvas_bg"])
-            lbl = tk.Label(f2, image=photo, relief="solid", bd=2, bg=bg)
-            lbl.pack()
+            deleted = i in self.page_del
+            if deleted:
+                bg = "#5a1a1a"
+                border = THEME["danger"]
+            elif sel:
+                bg = THEME["accent"]
+                border = THEME["accent2"]
+            elif hilite:
+                bg = "#5a5a1a"
+                border = "#f1c40f"
+            else:
+                bg = THEME["canvas_bg"]
+                border = THEME["border"]
+            f2.configure(highlightbackground=border, highlightcolor=border)
+            lbl = tk.Label(f2, image=photo, relief="flat", bd=0, bg=bg)
+            lbl.pack(padx=2, pady=2)
             lbl.bind("<Button-1>", lambda e, idx=i: self._toggle(idx))
-            ttk.Label(f2, text=self._pg_label(i), font=FONT_SM).pack()
+            # Page label with status
+            status = ""
+            if deleted:
+                status = " ✗ DELETED"
+            elif sel:
+                status = " ✓ SELECTED"
+            elif hilite:
+                status = " 🔍 FOUND"
+            rot = self.page_rots.get(i, 0)
+            if rot:
+                status += f" ↻{rot}°"
+            tk.Label(f2, text=f"Page {i + 1}{status}", font=FONT_SM,
+                    bg=bg, fg=THEME["fg"]).pack(pady=(0, 4))
 
     def _pg_label(self, i):
         parts = ["Page %d" % (i + 1)]
@@ -820,6 +970,86 @@ class SplitUI:
                 if i in idxs:
                     new.insert_pdf(self.doc, from_page=i, to_page=i)
         self.doc.close(); self._set_doc(new, self.doc_path)
+
+    def _move_pages(self, direction):
+        """Move selected pages up (-1) or down (+1)"""
+        if not self._sel or not self.doc: return
+        self._save_state()
+        idxs = sorted(self._sel)
+        total = len(self.doc)
+        
+        if direction == -1:
+            if idxs[0] == 0: return
+            new_order = list(range(total))
+            for idx in idxs:
+                new_order[idx], new_order[idx - 1] = new_order[idx - 1], new_order[idx]
+        else:
+            if idxs[-1] == total - 1: return
+            new_order = list(range(total))
+            for idx in reversed(idxs):
+                new_order[idx], new_order[idx + 1] = new_order[idx + 1], new_order[idx]
+        
+        self._reorder_document(new_order)
+
+    def move_up(self):
+        self._move_pages(-1)
+
+    def move_down(self):
+        self._move_pages(1)
+
+    def move_top(self):
+        if not self._sel or not self.doc: return
+        self._save_state()
+        idxs = sorted(self._sel)
+        if idxs[0] == 0: return
+        total = len(self.doc)
+        new_order = list(range(total))
+        for i, idx in enumerate(idxs):
+            new_order.pop(idx - i)
+        for i, idx in enumerate(idxs):
+            new_order.insert(i, idx)
+        self._reorder_document(new_order)
+
+    def move_bottom(self):
+        if not self._sel or not self.doc: return
+        self._save_state()
+        idxs = sorted(self._sel)
+        if idxs[-1] == len(self.doc) - 1: return
+        total = len(self.doc)
+        new_order = list(range(total))
+        for idx in reversed(idxs):
+            new_order.pop(idx)
+        for idx in reversed(idxs):
+            new_order.append(idx)
+        self._reorder_document(new_order)
+
+    def _reorder_document(self, new_order):
+        """Reorder document pages based on new_order list"""
+        new = fitz.open()
+        for i in new_order:
+            if i not in self.page_del:
+                new.insert_pdf(self.doc, from_page=i, to_page=i)
+                new_rot = self.page_rots.get(i)
+                if new_rot and len(new) > 0:
+                    new[-1].set_rotation(new_rot)
+        
+        new_rots = {}
+        new_del = set()
+        new_sel = set()
+        for new_idx, old_idx in enumerate(new_order):
+            if old_idx in self.page_del:
+                new_del.add(new_idx)
+            if old_idx in self.page_rots:
+                new_rots[new_idx] = self.page_rots[old_idx]
+            if old_idx in self._sel:
+                new_sel.add(new_idx)
+        
+        self.page_rots = new_rots
+        self.page_del = new_del
+        self._sel = new_sel
+        
+        self.doc.close()
+        self._set_doc(new, self.doc_path)
 
     def insert_blank(self):
         if not self.doc: return
