@@ -3,17 +3,11 @@ PDF Suite Pro — Quick Install
 
 Full details: INSTALLATION.txt
 
-WINDOWS (Pre-built)
--------------------
-Double-click: PDF Suite Pro.exe
-
-Desktop shortcut: right-click PDF Suite Pro.exe → Create shortcut
-Or run in PowerShell:
-
-  $ws = New-Object -ComObject WScript.Shell
-  $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDF Suite Pro.lnk")
-  $sc.TargetPath = "C:\full\path\to\PDF Suite Pro.exe"
-  $sc.Save()
+WINDOWS (Installer)
+--------------------
+1. Download PDFSuitePro_Installer.exe from GitHub Releases
+2. Run the installer and follow the wizard
+3. Launch from Start Menu or desktop shortcut
 
 FROM SOURCE
 -----------

@@ -2,9 +2,9 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v2.2
+**Version:** v2.3
 
-A full-featured PDF utility for **Windows** with a modern dark UI — merge, split, sign, compress, redact, and 30+ tools. No installation needed.
+A full-featured PDF utility for **Windows** with a modern dark UI — merge, split, sign, compress, redact, and 30+ tools. No installation needed (portable) or install via setup wizard.
 
 ## Features
 
@@ -27,24 +27,29 @@ A full-featured PDF utility for **Windows** with a modern dark UI — merge, spl
 - Save As with modifications
 
 ### Tools
-- **Digital Signature** — Styled "Digitally Signed by AYUSH GUPTA" box with date
+- **Digital Signature** — Modern styled "Digitally Signed by AYUSH GUPTA" box with date
 - **Image Compression** — JPG/PNG quality 1–100
 - **Images to PDF** — Combine multiple images into one PDF
 - **PDF Compression** — 4 levels with image downsampling
 - **Redact Text** — Permanently remove text
 - **Remove Metadata** · **Password Protect** (AES-256) · **Remove Password**
-- **Add Page Numbers** · **Flatten PDF** · **Rate & Review** dialog (1–5 stars)
+- **Add Page Numbers** · **Flatten PDF** (annotations)
+- **Clone Open PDF x2**
+- **Rate & Review** dialog (1–5 stars)
 
-### Android
-- Merge & split PDFs on your phone (Kivy-based APK)
+### Windows Compatibility
+- Supports Windows 7, 8, 8.1, 10, and 11
+- Automatic Windows version check at startup
+- High DPI awareness for sharp display on all screens
+- Modern dark theme optimized for Windows
 
 ## Quick Start
 
 | Step | Action |
 |------|--------|
-| 1 | Download `PDF Suite Pro.exe` from the repo |
-| 2 | Double-click — **no installation required** |
-| 3 | Right-click → Create shortcut on desktop |
+| 1 | Download `PDF Suite Pro.exe` from the Releases page **or** install via the setup wizard |
+| 2 | Double-click — **no installation required** (portable) |
+| 3 | Or install via `PDFSuitePro_Installer.exe` for proper Windows integration |
 
 ## Build from Source
 
@@ -58,15 +63,21 @@ Output: `dist/PDF Suite Pro.exe`
 ## Project Structure
 
 ```
-├── pdf_tool.py              # Main application source (Tkinter)
+├── pdf_tool.py              # Main application source (Tkinter with modern UI)
 ├── PDF Suite Pro.exe        # Pre-built executable (40 MB)
-├── android/                 # Android app (Kivy)
-│   ├── main.py
-│   └── buildozer.spec
+├── PDFSuitePro_Installer.exe  # Inno Setup installer
+├── pdf_merger.spec          # PyInstaller specification
 ├── requirements.txt
 ├── INSTALL.txt
 ├── INSTALLATION.txt
-└── README.md
+├── README.md
+├── dist/                    # PyInstaller build output
+├── build/                   # PyBuild temporary files
+└── android/                 # Android app (Kivy)
+    ├── main.py
+    └── buildozer.spec
+└── icons/                   # Installer icons
+    └── pdf_suite_pro.ico
 ```
 
 ## License

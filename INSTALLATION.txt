@@ -1,28 +1,21 @@
 PDF Suite Pro — Installation Guide
-===================================
+================================
 
 App:     PDF Suite Pro
 Creator: AYUSH GUPTA
-Version: v2.2
+Version: v2.3
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
 
 Option 1: Pre-built Executable (Recommended)
 ---------------------------------------------
 
-1. Double-click `PDF Suite Pro.exe` to run.
-   - No installation required — portable, runs from any folder.
-
-2. Create a desktop shortcut:
-   - Right-click `PDF Suite Pro.exe` → Show more options → Create shortcut
-   - Or run in PowerShell:
-     ```
-     $ws = New-Object -ComObject WScript.Shell
-     $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDF Suite Pro.lnk")
-     $sc.TargetPath = "C:\full\path\to\PDF Suite Pro.exe"
-     $sc.Save()
-     ```
-
+1. Download PDF Suite Pro Installer from the GitHub Releases page.
+2. Run the installer (PDFSuitePro_Installer.exe).
+3. Follow the setup wizard - the application will be installed to:
+   C:\Program Files\PDF Suite Pro
+4. A desktop shortcut will be created automatically.
+5. Launch PDF Suite Pro from the Start Menu or desktop shortcut.
 
 Option 2: Run from Source (Python)
 -----------------------------------
@@ -34,43 +27,35 @@ Requirements: Python 3.8+
 
 
 Option 3: Build Your Own Executable
-------------------------------------
+--------------------------------------
 
+Requirements:
    pip install -r requirements.txt
-   pip install PyMuPDF pyinstaller
+   pip install pyinstaller
    pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
 
-   Output: dist/PDF Suite Pro.exe
+Output: dist/PDF Suite Pro.exe
 
 
-Option 4: Android App (Build APK)
-----------------------------------
+Option 4: Manual Portable Use
+-----------------------------
 
-Requirements: Linux or WSL with Python 3.8+ and Buildozer.
-
-   cd android/
-   pip install buildozer
-   buildozer android debug
-
-   Output: android/bin/PDFSuite-*-debug.apk
-
+1. Download PDF Suite Pro.exe from the GitHub repository.
+2. No installation required - runs from any folder.
+3. Create a desktop shortcut:
+   - Right-click PDF Suite Pro.exe → Create shortcut
+   - Or pin to Taskbar
 
 Dependencies
-------------
-- PyMuPDF (required)       — PDF engine
-- Pillow                   — Image compression
-- PyInstaller              — Windows exe build
-- Kivy, Plyer              — Android build
-
+-------------
+- PyMuPDF (required) — PDF engine
+- Pillow — Image compression
+- PyInstaller — Windows exe build
 
 Troubleshooting
----------------
 
 "Windows protected your PC"
   Click "More info" → "Run anyway" (standard for unsigned exe).
-
-Antivirus false positive
-  Verify at VirusTotal or build from source yourself.
 
 App doesn't start
   Run from cmd to see errors: .\PDF Suite Pro.exe
@@ -80,3 +65,10 @@ App doesn't start
 
 Rate & Review
   App menu → Rate & Review (1–5 stars). Feedback saved locally.
+
+System Requirements
+-----------------
+- Windows 7, 8, 8.1, 10, or 11 (32-bit or 64-bit)
+- 2 GB RAM minimum (4 GB recommended)
+- 100 MB free disk space
+- .NET Framework 4.7.2 (included with Windows 10/11, optional for Win 7)

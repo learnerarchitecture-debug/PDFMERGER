@@ -3,7 +3,48 @@ from tkinter import filedialog, messagebox, ttk, simpledialog
 import os, json, tempfile, threading, queue
 from pathlib import Path
 from datetime import datetime
+import sys
 import fitz
+
+# Windows version check - support Windows 7 to 11
+def check_windows_version():
+    """Check if Windows version is supported (7 through 11)"""
+    if sys.platform != "win32":
+        return True
+    try:
+        import win32api
+        version = win32api.GetVersion()
+        # win32api.GetVersion returns version in format: major.minor*256
+        # Windows 7: 6.1, Windows 8: 6.2, Windows 8.1: 6.3, Windows 10: 10.0, Windows 11: 10.0
+        major = version & 0xFF
+        minor = version >> 8
+        if major == 6 and minor < 1:
+            messagebox.showerror("Unsupported Windows Version",
+                "This application requires Windows 7 or later.\n"
+                "Your current Windows version is not supported.")
+            sys.exit(1)
+        elif major == 10:
+            # Windows 10/11 - both have major=10
+            # We'll allow both but show advisory for Win 11 features
+            pass
+        return True
+    except ImportError:
+        # win32api not available, proceed with basic check
+        try:
+            import platform
+            win_ver = platform.win32_ver()
+            version_str = win_ver[0]
+            # Parse version
+            if "6." in version_str and int(version_str.split(".")[1]) < 1:
+                messagebox.showerror("Unsupported Windows Version",
+                    "This application requires Windows 7 or later.\n"
+                    "Your current Windows version is not supported.")
+                sys.exit(1)
+        except Exception:
+            pass
+    return True
+
+check_windows_version()
 
 APP_NAME = "PDF Suite Pro"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
@@ -12,16 +53,27 @@ SETTINGS_FILE = SETTINGS_DIR / "settings.json"
 THUMB_W, THUMB_H = 130, 170
 MAX_RECENT = 15
 
+# Modern enhanced theme with better contrast and modern colors
 THEME = {
-    "bg": "#1e1e2e", "fg": "#cdd6f4",
-    "accent": "#89b4fa", "accent2": "#a6e3a1",
-    "frame": "#313244", "entry": "#45475a", "button": "#45475a",
-    "button_hover": "#585b70", "tab_bg": "#1e1e2e", "tab_fg": "#cdd6f4",
-    "tab_sel": "#89b4fa", "notebook_bg": "#181825", "canvas_bg": "#313244",
+    "bg": "#0f0f23", "fg": "#e0e0e8",
+    "accent": "#bb86fc", "accent2": "#03dac6",
+    "frame": "#1a1a2e", "entry": "#16213e", "button": "#16213e",
+    "button_hover": "#1e3a5f", "tab_bg": "#16213e", "tab_fg": "#e0e0e8",
+    "tab_sel": "#bb86fc", "notebook_bg": "#0f0f23", "canvas_bg": "#1a1a2e",
 }
 FONT = ("Segoe UI", 10)
 FONT_BOLD = ("Segoe UI", 10, "bold")
 FONT_SM = ("Segoe UI", 9)
+
+# Windows DPI awareness for high-resolution screens
+try:
+    import ctypes
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
 
 FEEDBACK_FILE = SETTINGS_DIR / "feedback.json"
@@ -48,13 +100,13 @@ class RatingDialog:
 
         self.top = tk.Toplevel(parent)
         self.top.title("Rate & Review")
-        self.top.geometry("400x320")
+        self.top.geometry("420x340")
         self.top.resizable(False, False)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.configure(bg=THEME["bg"])
 
-        f = ttk.Frame(self.top, padding=14)
+        f = ttk.Frame(self.top, padding=16)
         f.pack(fill="both", expand=True)
 
         ttk.Label(f, text="Rate PDF Suite Pro", font=("Segoe UI", 14, "bold")).pack(pady=6)
@@ -84,10 +136,10 @@ class RatingDialog:
             self.review_text.insert("1.0", self.data.get("review", ""))
             self.review_text.configure(state="disabled")
 
-        bf = ttk.Frame(f); bf.pack(fill="x", pady=8)
-        ttk.Button(bf, text="Submit", command=self.submit).pack(side="left", padx=4)
-        ttk.Button(bf, text="Open GitHub Issues", command=self.open_github).pack(side="left", padx=4)
-        ttk.Button(bf, text="Close", command=self.top.destroy).pack(side="right", padx=4)
+        bf = ttk.Frame(f); bf.pack(fill="x", pady=10)
+        ttk.Button(bf, text="Submit", command=self.submit, style="Accent.TButton").pack(side="left", padx=6)
+        ttk.Button(bf, text="Open GitHub Issues", command=self.open_github).pack(side="left", padx=6)
+        ttk.Button(bf, text="Close", command=self.top.destroy).pack(side="right", padx=6)
 
     def set_star(self, v, animate=True):
         self.rating = v
@@ -158,15 +210,15 @@ class ProgressDlg:
     def __init__(self, parent, title, maxval):
         self.top = tk.Toplevel(parent)
         self.top.title(title)
-        self.top.geometry("350x90")
+        self.top.geometry("380x100")
         self.top.resizable(False, False)
         self.top.transient(parent)
         self.top.grab_set()
-        f = ttk.Frame(self.top, padding=12)
+        f = ttk.Frame(self.top, padding=16)
         f.pack(fill="both", expand=True)
         ttk.Label(f, text=title, font=FONT_BOLD).pack(anchor="w")
         self.pb = ttk.Progressbar(f, maximum=maxval, mode="determinate")
-        self.pb.pack(fill="x", pady=8)
+        self.pb.pack(fill="x", pady=6)
         self.lbl = ttk.Label(f, text="0 / %d" % maxval, font=FONT_SM)
         self.lbl.pack()
         self.top.update()
@@ -261,8 +313,8 @@ class PDFSuite:
         style.configure("TFrame", background=c["bg"])
         style.configure("TLabel", background=c["bg"], foreground=c["fg"], font=FONT)
         style.configure("TNotebook", background=c["notebook_bg"])
-        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[14, 6], font=FONT_BOLD)
-        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#1e1e2e")])
+        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[12, 4], font=FONT_BOLD)
+        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#0f0f23")])
         style.configure("TButton", background=c["button"], foreground=c["fg"], bordercolor=c["accent"], focuscolor="none", font=FONT)
         style.map("TButton", background=[("active", c["button_hover"])], foreground=[("active", c["fg"])])
         style.configure("TEntry", fieldbackground=c["entry"], foreground=c["fg"], insertcolor=c["fg"])
@@ -272,6 +324,10 @@ class PDFSuite:
         style.configure("Horizontal.TScrollbar", background=c["button"], troughcolor=c["bg"])
         style.configure("TCheckbutton", background=c["bg"], foreground=c["fg"])
         style.map("TCheckbutton", background=[("active", c["bg"])])
+        # Configure custom styles for modern controls
+        style.configure("Accent.TButton", background=c["accent"], foreground="#0f0f23", font=FONT_BOLD)
+        style.map("Accent.TButton", background=[("active", c["accent2"])], foreground=[("active", "#0f0f23")])
+        style.configure("Danger.TButton", background="#ef4444", foreground="#fff")
 
     def _build_menu(self):
         mb = tk.Menu(self.root, bg=THEME["frame"], fg=THEME["fg"], activebackground=THEME["accent"])
