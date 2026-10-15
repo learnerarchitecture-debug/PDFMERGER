@@ -248,36 +248,44 @@ class ReorderListbox(tk.Listbox):
         self.bind("<B1-Motion>", self.on_drag)
         self.bind("<ButtonRelease-1>", self.on_release)
         self._drag = {"index": None, "y": 0}
+        self.on_move = None  # optional callback(a, b) when an item is reordered
 
     def on_press(self, e):
         idx = self.nearest(e.y)
         if idx in self.curselection():
             self._drag = {"index": idx, "y": e.y}
         else:
-            self._drag = {"index": None, "y": 0}
             self.selection_clear(0, "end")
             self.selection_set(idx)
             self.activate(idx)
+            self._drag = {"index": idx, "y": e.y}
 
     def on_drag(self, e):
         idx = self._drag["index"]
         if idx is None or abs(e.y - self._drag["y"]) < 20: return
         new = self.nearest(e.y)
         if new != idx:
-            self.swap(idx, new)
+            self.move_item(idx, new)
             self._drag["index"] = new
             self._drag["y"] = e.y
 
     def on_release(self, e):
         self._drag = {"index": None, "y": 0}
 
-    def swap(self, a, b):
+    def move_item(self, a, b):
+        """Move item at index a to index b, and notify on_move so the
+        underlying data list (merge order) stays in sync."""
         items = list(self.get(0, "end"))
-        items[a], items[b] = items[b], items[a]
+        if not (0 <= a < len(items)) or not (0 <= b < len(items)): return
+        item = items.pop(a)
+        items.insert(b, item)
         self.delete(0, "end")
         for it in items: self.insert("end", it)
+        self.selection_clear(0, "end")
         self.selection_set(b)
         self.activate(b)
+        if self.on_move:
+            self.on_move(a, b)
 
 
 # ═══════════════════════ MAIN APP ═══════════════════════
@@ -483,6 +491,7 @@ class MergeUI:
         self.lb.configure(yscrollcommand=sc.set)
         self.lb.pack(side="left", fill="both", expand=True); sc.pack(side="right", fill="y")
         self.lb.bind("<<ListboxSelect>>", self.on_sel)
+        self.lb.on_move = self._on_files_reordered
         self.info_lbl = ttk.Label(f, text="0 files", foreground="gray")
         self.info_lbl.pack(anchor="w")
 
@@ -535,6 +544,13 @@ class MergeUI:
 
     def _upd_info(self):
         self.info_lbl.config(text="%d file(s)" % len(self.files))
+
+    def _on_files_reordered(self, a, b):
+        """Keep self.files in sync when the user drag-reorders the list,
+        so the merge output follows the visible order."""
+        if 0 <= a < len(self.files) and 0 <= b < len(self.files):
+            f = self.files.pop(a)
+            self.files.insert(b, f)
 
     def dup_sel(self):
         for i in reversed(self.lb.curselection()):

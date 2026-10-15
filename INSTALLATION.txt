@@ -1,5 +1,5 @@
 PDF Suite Pro — Installation Guide
-================================
+==================================
 
 App:     PDF Suite Pro
 Creator: AYUSH GUPTA
@@ -7,17 +7,40 @@ Version: v2.3
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
 
-Option 1: Pre-built Executable (Recommended)
+Option 1: Setup Wizard (Recommended)
+-------------------------------------
+
+1. Download PDFSuitePro_Installer.exe from this repository.
+2. Run it (Administrator permission is requested automatically).
+3. Follow the wizard — the application installs to:
+     C:\Program Files\PDF Suite Pro
+4. Desktop and Start Menu shortcuts are created automatically.
+5. Launch PDF Suite Pro from the desktop or Start Menu.
+6. To remove: Windows Settings → Apps → PDF Suite Pro → Uninstall
+   (an uninstaller is also placed in the install folder).
+
+The installer checks your Windows version and supports
+Windows 7, 8, 8.1, 10, and 11 (32-bit and 64-bit).
+
+
+Option 2: Portable — Run Without Installing
 ---------------------------------------------
 
-1. Download PDF Suite Pro Installer from the GitHub Releases page.
-2. Run the installer (PDFSuitePro_Installer.exe).
-3. Follow the setup wizard - the application will be installed to:
-   C:\Program Files\PDF Suite Pro
-4. A desktop shortcut will be created automatically.
-5. Launch PDF Suite Pro from the Start Menu or desktop shortcut.
+1. Download PDF Suite Pro.exe from this repository.
+2. Double-click it — no installation required, runs from any folder.
+3. Optional: right-click → Create shortcut, or pin to Taskbar.
 
-Option 2: Run from Source (Python)
+
+Option 3: Script Installer (from source)
+------------------------------------------
+
+1. Build the exe first (see Option 4) so that dist\PDF Suite Pro.exe exists.
+2. Right-click install.bat → "Run as administrator".
+3. It copies the app to C:\Program Files\PDF Suite Pro, creates shortcuts,
+   and adds an uninstaller to Apps & Features.
+
+
+Option 4: Run from Source (Python)
 -----------------------------------
 
 Requirements: Python 3.8+
@@ -26,39 +49,52 @@ Requirements: Python 3.8+
    python pdf_tool.py
 
 
-Option 3: Build Your Own Executable
---------------------------------------
+Option 5: Build Your Own Executable
+------------------------------------
 
-Requirements:
    pip install -r requirements.txt
    pip install pyinstaller
    pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
 
-Output: dist/PDF Suite Pro.exe
+   Output: dist/PDF Suite Pro.exe
+
+   For a Windows 7–compatible 32-bit build use Python 3.8:
+     pip install PyMuPDF==1.23.26 Pillow==10.4.0 pyinstaller==5.13.2
+     pyinstaller --onefile --windowed --name "PDF Suite Pro" pdf_tool.py
 
 
-Option 4: Manual Portable Use
------------------------------
+Option 6: Android App (Build APK)
+----------------------------------
 
-1. Download PDF Suite Pro.exe from the GitHub repository.
-2. No installation required - runs from any folder.
-3. Create a desktop shortcut:
-   - Right-click PDF Suite Pro.exe → Create shortcut
-   - Or pin to Taskbar
+Requirements: Linux or WSL with Python 3.8+ and Buildozer.
+
+   cd android/
+   pip install buildozer
+   buildozer android debug
+
+   Output: android/bin/PDFSuite-*-debug.apk
+
 
 Dependencies
--------------
-- PyMuPDF (required) — PDF engine
-- Pillow — Image compression
-- PyInstaller — Windows exe build
+------------
+- PyMuPDF (required)       — PDF engine
+- Pillow                   — Image compression
+- PyInstaller              — Windows exe build
+- NSIS or Inno Setup       — Installer build
+- Kivy, Plyer              — Android build
+
 
 Troubleshooting
+---------------
 
 "Windows protected your PC"
   Click "More info" → "Run anyway" (standard for unsigned exe).
 
+Antivirus false positive
+  Verify at VirusTotal or build from source yourself.
+
 App doesn't start
-  Run from cmd to see errors: .\PDF Suite Pro.exe
+  Run from cmd to see errors: "PDF Suite Pro.exe"
 
 "No module named 'fitz'"
   pip install PyMuPDF
@@ -66,9 +102,9 @@ App doesn't start
 Rate & Review
   App menu → Rate & Review (1–5 stars). Feedback saved locally.
 
+
 System Requirements
------------------
+-------------------
 - Windows 7, 8, 8.1, 10, or 11 (32-bit or 64-bit)
 - 2 GB RAM minimum (4 GB recommended)
 - 100 MB free disk space
-- .NET Framework 4.7.2 (included with Windows 10/11, optional for Win 7)

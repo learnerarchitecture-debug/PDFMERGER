@@ -23,7 +23,7 @@ RequestExecutionLevel admin
 ; Modern UI
 !define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "${NSISDIR}\Contrib\Graphics\Header\modern.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${NSISDIR}\Contrib\Graphics\Header\nsis3-metro.bmp"
 !define MUI_LICENSEPAGE_TEXT_TOP "Please read the license agreement."
 !define MUI_LICENSEPAGE_TEXT_BOTTOM "Click Next to continue."
 

@@ -10,9 +10,10 @@ A full-featured PDF utility for **Windows** with a modern dark UI — merge, spl
 
 ### Merge
 - Standard PDF merging with per-file page ranges
+- **Drag-and-drop reorder** — merge output follows the order shown in the list
+- **Reorder buttons** — Move Up / Move Down / Top / Bottom
 - **Alternate merge** — interleave pages from multiple files
-- Insert PDF at specific position
-- Add cover page · Duplicate files · Drag-and-drop reorder
+- Insert PDF at specific position · Add cover page · Duplicate files
 - Password protect · Compression
 - **Threaded** — UI stays responsive during large merges
 
@@ -20,7 +21,8 @@ A full-featured PDF utility for **Windows** with a modern dark UI — merge, spl
 - Split every page, extract range, split by bookmarks or page count
 - **Split even/odd pages** (duplex scanning)
 - Rotate CW/CCW · Delete · Insert blank · Duplicate pages
-- Mirror/flip pages · Convert to grayscale (new file or in-place)
+- **Move page Up/Down/Top/Bottom** · Mirror/flip pages
+- Convert to grayscale (new file or in-place)
 - **Undo/Redo** for all page actions
 - **Search text** with thumbnail highlighting (runs in background thread)
 - Extract all images or text from PDF
@@ -38,18 +40,20 @@ A full-featured PDF utility for **Windows** with a modern dark UI — merge, spl
 - **Rate & Review** dialog (1–5 stars)
 
 ### Windows Compatibility
-- Supports Windows 7, 8, 8.1, 10, and 11
-- Automatic Windows version check at startup
+- Supports Windows 7, 8, 8.1, 10, and 11 (32-bit and 64-bit)
+- Built as a **32-bit executable** so it runs on all supported Windows versions
 - High DPI awareness for sharp display on all screens
 - Modern dark theme optimized for Windows
 
 ## Quick Start
 
-| Step | Action |
-|------|--------|
-| 1 | Download `PDF Suite Pro.exe` from the Releases page **or** install via the setup wizard |
-| 2 | Double-click — **no installation required** (portable) |
-| 3 | Or install via `PDFSuitePro_Installer.exe` for proper Windows integration |
+| Option | Action |
+|--------|--------|
+| **Installer (recommended)** | Download `PDFSuitePro_Installer.exe` → run the wizard → launch from desktop/Start Menu shortcut |
+| **Portable** | Download `PDF Suite Pro.exe` → double-click, no installation required |
+| **Script installer** | Run `install.bat` as Administrator (if you built the exe yourself) |
+
+The setup wizard installs to `C:\Program Files\PDF Suite Pro`, creates desktop and Start Menu shortcuts, registers an uninstaller in **Apps & Features**, and can launch the app when finished.
 
 ## Build from Source
 
@@ -60,24 +64,40 @@ pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
 
 Output: `dist/PDF Suite Pro.exe`
 
+### Windows 7–compatible build
+
+Windows 7 requires Python 3.8 (32-bit) + PyInstaller 5.x:
+
+```bash
+pip install PyMuPDF==1.23.26 Pillow==10.4.0 pyinstaller==5.13.2
+pyinstaller --onefile --windowed --name "PDF Suite Pro" pdf_tool.py
+```
+
+### Build the installer (NSIS)
+
+```bash
+makensis pdfsuite_pro.nsi
+```
+
+Output: `PDFSuitePro_Installer.exe`
+
 ## Project Structure
 
 ```
-├── pdf_tool.py              # Main application source (Tkinter with modern UI)
-├── PDF Suite Pro.exe        # Pre-built executable (40 MB)
-├── PDFSuitePro_Installer.exe  # Inno Setup installer
-├── pdf_merger.spec          # PyInstaller specification
+├── pdf_tool.py                # Main application source (Tkinter, modern UI)
+├── PDF Suite Pro.exe          # Pre-built portable executable (32-bit, ~24 MB)
+├── PDFSuitePro_Installer.exe  # Setup wizard (built with NSIS)
+├── pdfsuite_pro.nsi           # NSIS installer script
+├── pdfsuite_pro.iss           # Inno Setup installer script (alternative)
+├── install.bat                # Simple batch installer script
+├── LICENSE.txt
 ├── requirements.txt
 ├── INSTALL.txt
 ├── INSTALLATION.txt
 ├── README.md
-├── dist/                    # PyInstaller build output
-├── build/                   # PyBuild temporary files
-└── android/                 # Android app (Kivy)
+└── android/                   # Android app (Kivy)
     ├── main.py
     └── buildozer.spec
-└── icons/                   # Installer icons
-    └── pdf_suite_pro.ico
 ```
 
 ## License
