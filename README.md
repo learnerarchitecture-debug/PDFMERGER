@@ -2,11 +2,17 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v2.3
+**Version:** v3.0
 
-A full-featured PDF utility for **Windows** with a modern dark UI — merge, split, sign, compress, redact, and 30+ tools. No installation needed (portable) or install via setup wizard.
+A full-featured PDF utility for **Windows** with a sleek, modern dark UI — merge, split, sign, compress, redact, and 30+ tools. No installation needed (portable) or install via setup wizard.
 
 ## Features
+
+### Modern UI (v3.0 redesign)
+- Card-based dark design: rounded surfaces, subtle 1px borders, indigo accent
+- Segmented top navigation, pill buttons, styled sliders and dropdowns
+- Responsive layout — tool panels scroll when space is tight
+- Runs on modern customtkinter rendering (no native Windows chrome)
 
 ### Merge
 - Standard PDF merging with per-file page ranges

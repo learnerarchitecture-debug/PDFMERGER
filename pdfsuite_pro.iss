@@ -1,5 +1,5 @@
 #define AppName "PDF Suite Pro"
-#define AppVersion "2.3"
+#define AppVersion "3.0"
 #define AppPublisher "AYUSH GUPTA"
 #define AppURL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 #define SourceExe "dist\PDF Suite Pro.exe"

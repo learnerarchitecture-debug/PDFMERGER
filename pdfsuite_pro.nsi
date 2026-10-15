@@ -7,7 +7,7 @@
 
 ; Application info
 !define APP_NAME "PDF Suite Pro"
-!define APP_VERSION "2.3"
+!define APP_VERSION "3.0"
 !define APP_PUBLISHER "AYUSH GUPTA"
 !define APP_URL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 !define APP_EXE "PDF Suite Pro.exe"

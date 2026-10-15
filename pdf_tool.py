@@ -1,10 +1,11 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk, simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 import os, json, tempfile, threading, queue
 from pathlib import Path
 from datetime import datetime
 import sys
 import fitz
+import customtkinter as ctk
 
 # Windows version check - support Windows 7 to 11
 def check_windows_version():
@@ -47,28 +48,84 @@ def check_windows_version():
 check_windows_version()
 
 APP_NAME = "PDF Suite Pro"
+APP_VERSION = "3.0"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_FILE = SETTINGS_DIR / "settings.json"
 THUMB_W, THUMB_H = 130, 170
 MAX_RECENT = 15
 
-# Modern enhanced theme with better contrast and modern colors
+# ─── Modern dark theme (2026 design) ───
 THEME = {
-    "bg": "#0a0a1a", "fg": "#e8e8f0",
-    "accent": "#7c5cff", "accent2": "#00e5d4",
-    "frame": "#15152a", "entry": "#1f1f3d", "button": "#1f1f3d",
-    "button_hover": "#2a2a55", "tab_bg": "#1f1f3d", "tab_fg": "#e8e8f0",
-    "tab_sel": "#7c5cff", "notebook_bg": "#0a0a1a", "canvas_bg": "#15152a",
-    "success": "#00e676", "warning": "#ff9800", "danger": "#ff5252",
-    "selection": "#3d3d75", "hover": "#2a2a55",
-    "border": "#3d3d75", "shadow": "#050510",
+    "bg": "#0b0e14",          # window background
+    "surface": "#10141d",     # cards
+    "surface2": "#171c28",    # inputs / wells
+    "hover": "#1e2536",       # hover state
+    "border": "#232b3b",      # subtle 1px borders
+    "fg": "#e7ebf3",          # primary text
+    "muted": "#8a93a8",       # secondary text
+    "accent": "#5b7cfa",      # primary accent (indigo-blue)
+    "accent_h": "#7391ff",    # accent hover
+    "accent2": "#8b5cf6",     # violet secondary
+    "success": "#22c55e",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "canvas_bg": "#0c1017",   # thumbnail area
+    "selection": "#233052",
+    # aliases kept for internal compatibility
+    "entry": "#171c28", "frame": "#10141d", "button": "#171c28",
+    "button_hover": "#1e2536", "tab_bg": "#171c28", "tab_fg": "#e7ebf3",
+    "tab_sel": "#5b7cfa", "notebook_bg": "#0b0e14", "sub_bg": "#0c1017",
+    "shadow": "#05070b",
 }
-FONT = ("Segoe UI", 10)
-FONT_BOLD = ("Segoe UI", 10, "bold")
-FONT_SM = ("Segoe UI", 9)
-FONT_LARGE = ("Segoe UI", 12, "bold")
-FONT_TITLE = ("Segoe UI", 14, "bold")
+FONT = ("Segoe UI", 11)
+FONT_BOLD = ("Segoe UI", 11, "bold")
+FONT_SM = ("Segoe UI", 10)
+FONT_LARGE = ("Segoe UI", 13, "bold")
+FONT_TITLE = ("Segoe UI", 20, "bold")
+
+
+# ─── Modern UI widget helpers ───
+def modern_card(parent, **kw):
+    """Rounded card surface."""
+    opts = dict(fg_color=THEME["surface"], corner_radius=14,
+                border_width=1, border_color=THEME["border"])
+    opts.update(kw)
+    return ctk.CTkFrame(parent, **opts)
+
+
+def primary_btn(parent, text, command, width=140, height=36, **kw):
+    return ctk.CTkButton(parent, text=text, command=command, width=width, height=height,
+        fg_color=THEME["accent"], hover_color=THEME["accent_h"], text_color="#ffffff",
+        corner_radius=9, font=FONT_BOLD, **kw)
+
+
+def ghost_btn(parent, text, command, width=90, height=32, **kw):
+    return ctk.CTkButton(parent, text=text, command=command, width=width, height=height,
+        fg_color=THEME["surface2"], hover_color=THEME["hover"], text_color=THEME["fg"],
+        border_width=1, border_color=THEME["border"], corner_radius=9, font=FONT, **kw)
+
+
+def accent_entry(parent, **kw):
+    opts = dict(height=34, corner_radius=9, fg_color=THEME["surface2"],
+                border_color=THEME["border"], text_color=THEME["fg"], font=FONT)
+    opts.update(kw)
+    return ctk.CTkEntry(parent, **opts)
+
+
+def dark_check(parent, text, variable, **kw):
+    opts = dict(text=text, variable=variable, font=FONT, onvalue=True, offvalue=False,
+                checkbox_width=20, checkbox_height=20, corner_radius=6,
+                fg_color=THEME["accent"], hover_color=THEME["accent_h"],
+                border_color=THEME["border"], text_color=THEME["fg"])
+    opts.update(kw)
+    return ctk.CTkCheckBox(parent, **opts)
+
+
+def v_sep(parent, padx=8):
+    s = ctk.CTkFrame(parent, width=1, height=22, fg_color=THEME["border"])
+    s.pack(side="left", fill="y", padx=padx)
+    return s
 
 # Windows DPI awareness for high-resolution screens
 try:
@@ -103,56 +160,63 @@ class RatingDialog:
         self.star_btns = []
         self.data = load_feedback()
 
-        self.top = tk.Toplevel(parent)
+        self.top = ctk.CTkToplevel(parent)
         self.top.title("Rate & Review")
-        self.top.geometry("420x340")
+        self.top.geometry("460x430")
         self.top.resizable(False, False)
         self.top.transient(parent)
         self.top.grab_set()
-        self.top.configure(bg=THEME["bg"])
+        self.top.configure(fg_color=THEME["bg"])
 
-        f = ttk.Frame(self.top, padding=16)
-        f.pack(fill="both", expand=True)
+        card = modern_card(self.top)
+        card.pack(fill="both", expand=True, padx=16, pady=16)
 
-        ttk.Label(f, text="Rate PDF Suite Pro", font=("Segoe UI", 14, "bold")).pack(pady=6)
-        ttk.Label(f, text="Tap a star to rate:", font=FONT).pack()
+        ctk.CTkLabel(card, text="Rate PDF Suite Pro", font=("Segoe UI", 16, "bold"),
+                     text_color=THEME["fg"]).pack(pady=(18, 2))
+        ctk.CTkLabel(card, text="Your feedback helps improve the app", font=FONT_SM,
+                     text_color=THEME["muted"]).pack()
 
-        sf = ttk.Frame(f)
-        sf.pack(pady=8)
+        sf = ctk.CTkFrame(card, fg_color="transparent")
+        sf.pack(pady=12)
         for i in range(5):
-            btn = tk.Button(sf, text="\u2606", font=("Segoe UI", 24),
-                bg=THEME["bg"], fg=THEME["accent"], relief="flat",
-                activebackground=THEME["bg"], activeforeground=THEME["accent2"],
-                cursor="hand2",
+            btn = ctk.CTkButton(sf, text="\u2606", width=56, height=56, corner_radius=16,
+                fg_color=THEME["surface2"], hover_color=THEME["hover"],
+                text_color=THEME["muted"], font=("Segoe UI", 26),
                 command=lambda v=i + 1: self.set_star(v))
-            btn.pack(side="left", padx=3)
+            btn.pack(side="left", padx=4)
             self.star_btns.append(btn)
 
-        self.rating_lbl = ttk.Label(f, text="", font=FONT_BOLD)
+        self.rating_lbl = ctk.CTkLabel(card, text="Tap a star to rate", font=FONT_BOLD,
+                                       text_color=THEME["fg"])
         self.rating_lbl.pack()
 
-        ttk.Label(f, text="Leave a review (optional):", font=FONT).pack(anchor="w", pady=(8, 2))
-        self.review_text = tk.Text(f, height=3, bg=THEME["entry"], fg=THEME["fg"],
-            font=FONT, relief="flat", insertbackground=THEME["fg"])
-        self.review_text.pack(fill="x")
+        ctk.CTkLabel(card, text="Leave a review (optional)", font=FONT_SM,
+                     text_color=THEME["muted"]).pack(anchor="w", padx=18, pady=(14, 2))
+        self.review_text = ctk.CTkTextbox(card, height=90, corner_radius=10,
+            fg_color=THEME["surface2"], border_width=1, border_color=THEME["border"],
+            text_color=THEME["fg"], font=FONT)
+        self.review_text.pack(fill="x", padx=18)
 
         if self.data["submitted"]:
             self.set_star(self.data["rating"], animate=False)
             self.review_text.insert("1.0", self.data.get("review", ""))
             self.review_text.configure(state="disabled")
 
-        bf = ttk.Frame(f); bf.pack(fill="x", pady=10)
-        ttk.Button(bf, text="Submit", command=self.submit, style="Accent.TButton").pack(side="left", padx=6)
-        ttk.Button(bf, text="Open GitHub Issues", command=self.open_github).pack(side="left", padx=6)
-        ttk.Button(bf, text="Close", command=self.top.destroy).pack(side="right", padx=6)
+        bf = ctk.CTkFrame(card, fg_color="transparent")
+        bf.pack(fill="x", padx=18, pady=(14, 16))
+        primary_btn(bf, "Submit", self.submit, width=110, height=34).pack(side="left")
+        ghost_btn(bf, "GitHub issues", self.open_github, width=124).pack(side="left", padx=8)
+        ghost_btn(bf, "Close", self.top.destroy, width=90).pack(side="right")
 
     def set_star(self, v, animate=True):
         self.rating = v
         labels = {1: "Poor", 2: "Below Average", 3: "Average", 4: "Good", 5: "Excellent"}
-        self.rating_lbl.config(text="%d / 5 - %s" % (v, labels.get(v, "")))
+        self.rating_lbl.configure(text="%d / 5  \u2014  %s" % (v, labels.get(v, "")))
         for i, btn in enumerate(self.star_btns):
-            btn.config(text="\u2605" if i < v else "\u2606",
-                fg=THEME["accent"] if i < v else THEME["button_hover"])
+            if i < v:
+                btn.configure(text="\u2605", text_color="#f5b301", fg_color=THEME["surface2"])
+            else:
+                btn.configure(text="\u2606", text_color=THEME["muted"], fg_color=THEME["surface2"])
 
     def submit(self):
         if self.rating == 0:
@@ -213,31 +277,46 @@ def safe_save(doc, path, compress=True, password=None):
 
 class ProgressDlg:
     def __init__(self, parent, title, maxval):
-        self.top = tk.Toplevel(parent)
+        self.maxval = max(1, int(maxval))
+        self.cur = 0
+        self.top = ctk.CTkToplevel(parent)
         self.top.title(title)
-        self.top.geometry("380x100")
+        self.top.geometry("400x140")
         self.top.resizable(False, False)
         self.top.transient(parent)
         self.top.grab_set()
-        f = ttk.Frame(self.top, padding=16)
-        f.pack(fill="both", expand=True)
-        ttk.Label(f, text=title, font=FONT_BOLD).pack(anchor="w")
-        self.pb = ttk.Progressbar(f, maximum=maxval, mode="determinate")
-        self.pb.pack(fill="x", pady=6)
-        self.lbl = ttk.Label(f, text="0 / %d" % maxval, font=FONT_SM)
-        self.lbl.pack()
+        self.top.configure(fg_color=THEME["bg"])
+        card = modern_card(self.top)
+        card.pack(fill="both", expand=True, padx=14, pady=14)
+        ctk.CTkLabel(card, text=title, font=FONT_BOLD,
+                     text_color=THEME["fg"]).pack(anchor="w", padx=16, pady=(14, 2))
+        self.pb = ctk.CTkProgressBar(card, height=10, corner_radius=5,
+            fg_color=THEME["surface2"], progress_color=THEME["accent"])
+        self.pb.set(0)
+        self.pb.pack(fill="x", padx=16, pady=(10, 6))
+        self.lbl = ctk.CTkLabel(card, text="0 / %d" % self.maxval, font=FONT_SM,
+                                text_color=THEME["muted"])
+        self.lbl.pack(anchor="w", padx=16)
         self.top.update()
 
     def step(self, val=None):
-        if val is not None: self.pb["value"] = val
-        else: self.pb.step()
-        self.lbl.config(text="%d / %d" % (self.pb["value"], self.pb["maximum"]))
+        if val is not None:
+            self.cur = val
+        else:
+            self.cur += 1
+        try:
+            self.pb.set(min(1.0, max(0.0, self.cur / float(self.maxval))))
+        except Exception:
+            pass
+        self.lbl.configure(text="%d / %d" % (self.cur, self.maxval))
         self.top.update()
         for w in self.top.winfo_children():
             try: w.update()
             except: pass
 
-    def close(self): self.top.destroy()
+    def close(self):
+        try: self.top.destroy()
+        except: pass
 
 
 # ─── Reorder Listbox ───
@@ -292,29 +371,35 @@ class ReorderListbox(tk.Listbox):
 class PDFSuite:
     def __init__(self, root):
         self.root = root
-        self.root.title(APP_NAME + " - v2.3")
-        self.root.geometry("1100x750")
-        self.root.minsize(900, 600)
-        self.root.configure(bg=THEME["bg"])
+        self.root.title(APP_NAME + " — v" + APP_VERSION)
+        try:
+            sw = self.root.winfo_screenwidth(); sh = self.root.winfo_screenheight()
+        except Exception:
+            sw, sh = 1280, 800
+        w, h = min(1240, sw - 40), min(800, sh - 70)
+        self.root.geometry("%dx%d" % (w, h))
+        self.root.minsize(980, 620)
+        self.root.configure(fg_color=THEME["bg"])
 
         self.settings = load_settings()
         self.recent_files = self.settings.get("recent_files", [])
 
-        self._apply_theme()
         self._build_menu()
-        
-        # Header banner
         self._build_header()
-        
-        self.notebook = ttk.Notebook(root)
-        self.notebook.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
-        self.tab_merge = ttk.Frame(self.notebook)
-        self.tab_split = ttk.Frame(self.notebook)
-        self.tab_tools = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_merge, text="  📄 Merge  ")
-        self.notebook.add(self.tab_split, text="  ✂️ Split & Edit  ")
-        self.notebook.add(self.tab_tools, text="  🔧 Tools  ")
+        self.tabview = ctk.CTkTabview(root, fg_color=THEME["bg"], corner_radius=16, border_width=0,
+            anchor="nw",
+            segmented_button_fg_color=THEME["surface2"],
+            segmented_button_selected_color=THEME["accent"],
+            segmented_button_selected_hover_color=THEME["accent_h"],
+            segmented_button_unselected_color=THEME["surface2"],
+            segmented_button_unselected_hover_color=THEME["hover"],
+            text_color=THEME["fg"])
+        self.tabview.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+
+        self.tab_merge = self.tabview.add("Merge")
+        self.tab_split = self.tabview.add("Split & Edit")
+        self.tab_tools = self.tabview.add("Tools")
 
         self.merge_ui = MergeUI(self.tab_merge, self)
         self.split_ui = SplitUI(self.tab_split, self)
@@ -323,52 +408,36 @@ class PDFSuite:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _build_header(self):
-        """Build a beautiful header banner"""
-        header = tk.Frame(self.root, bg=THEME["frame"], height=70)
-        header.pack(fill="x", padx=12, pady=(12, 6))
-        header.pack_propagate(False)
-        
-        title_frame = tk.Frame(header, bg=THEME["frame"])
-        title_frame.pack(side="left", padx=20, pady=10)
-        
-        tk.Label(title_frame, text="PDF Suite Pro", font=("Segoe UI", 18, "bold"),
-                bg=THEME["frame"], fg=THEME["accent"]).pack(anchor="w")
-        tk.Label(title_frame, text="v2.3 - Modern PDF Tool for Windows", font=("Segoe UI", 9),
-                bg=THEME["frame"], fg=THEME["accent2"]).pack(anchor="w")
-        
-        stats_frame = tk.Frame(header, bg=THEME["frame"])
-        stats_frame.pack(side="right", padx=20, pady=10)
-        tk.Label(stats_frame, text="✨ 30+ Tools", font=("Segoe UI", 10, "bold"),
-                bg=THEME["frame"], fg=THEME["accent2"]).pack(anchor="e")
-        tk.Label(stats_frame, text="Merge • Split • Sign • Compress", font=("Segoe UI", 8),
-                bg=THEME["frame"], fg=THEME["fg"]).pack(anchor="e")
+        """Modern header banner"""
+        hdr = modern_card(self.root, corner_radius=16)
+        hdr.pack(fill="x", padx=16, pady=(16, 12))
+        inner = ctk.CTkFrame(hdr, fg_color="transparent")
+        inner.pack(fill="x", padx=16, pady=14)
 
-    def _apply_theme(self):
-        c = THEME
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure(".", background=c["bg"], foreground=c["fg"], font=FONT)
-        style.configure("TFrame", background=c["bg"])
-        style.configure("TLabel", background=c["bg"], foreground=c["fg"], font=FONT)
-        style.configure("TNotebook", background=c["notebook_bg"])
-        style.configure("TNotebook.Tab", background=c["tab_bg"], foreground=c["tab_fg"], padding=[18, 8], font=FONT_BOLD)
-        style.map("TNotebook.Tab", background=[("selected", c["tab_sel"])], foreground=[("selected", "#0a0a1a")])
-        style.configure("TButton", background=c["button"], foreground=c["fg"], bordercolor=c["accent"], focuscolor="none", font=FONT, padding=[8, 4])
-        style.map("TButton", background=[("active", c["button_hover"])], foreground=[("active", c["fg"])])
-        style.configure("TEntry", fieldbackground=c["entry"], foreground=c["fg"], insertcolor=c["fg"], bordercolor=c["border"])
-        style.configure("TLabelframe", background=c["bg"], foreground=c["accent"], bordercolor=c["border"])
-        style.configure("TLabelframe.Label", background=c["bg"], foreground=c["accent2"], font=FONT_BOLD)
-        style.configure("Vertical.TScrollbar", background=c["button"], troughcolor=c["bg"], bordercolor=c["border"])
-        style.configure("Horizontal.TScrollbar", background=c["button"], troughcolor=c["bg"], bordercolor=c["border"])
-        style.configure("TCheckbutton", background=c["bg"], foreground=c["fg"], focuscolor="none")
-        style.map("TCheckbutton", background=[("active", c["bg"])])
-        # Configure custom styles for modern controls
-        style.configure("Accent.TButton", background=c["accent"], foreground="#0a0a1a", font=FONT_BOLD, padding=[10, 6])
-        style.map("Accent.TButton", background=[("active", c["accent2"])], foreground=[("active", "#0a0a1a")])
-        style.configure("Danger.TButton", background=c["danger"], foreground="#fff", font=FONT_BOLD, padding=[10, 6])
-        style.configure("Success.TButton", background=c["success"], foreground="#0a0a1a", font=FONT_BOLD, padding=[10, 6])
-        style.configure("Title.TLabel", background=c["bg"], foreground=c["accent"], font=FONT_TITLE)
-        style.configure("Header.TLabel", background=c["bg"], foreground=c["accent2"], font=FONT_LARGE)
+        badge = ctk.CTkFrame(inner, fg_color=THEME["accent"], corner_radius=12,
+                             width=46, height=46)
+        badge.pack(side="left")
+        badge.pack_propagate(False)
+        ctk.CTkLabel(badge, text="PDF", font=("Segoe UI", 13, "bold"),
+                     text_color="#ffffff").place(relx=0.5, rely=0.5, anchor="center")
+
+        tf = ctk.CTkFrame(inner, fg_color="transparent")
+        tf.pack(side="left", padx=(14, 0))
+        ctk.CTkLabel(tf, text=APP_NAME, font=FONT_TITLE,
+                     text_color=THEME["fg"]).pack(anchor="w")
+        ctk.CTkLabel(tf, text="Merge  ·  Split  ·  Sign  ·  Compress — a modern PDF toolkit for Windows",
+                     font=FONT_SM, text_color=THEME["muted"]).pack(anchor="w")
+
+        chip2 = ctk.CTkFrame(inner, fg_color=THEME["surface2"], corner_radius=12,
+                             border_width=1, border_color=THEME["border"])
+        chip2.pack(side="right", padx=(8, 0))
+        ctk.CTkLabel(chip2, text="★  30+ tools", font=FONT_SM,
+                     text_color=THEME["accent_h"]).pack(padx=12, pady=5)
+        chip1 = ctk.CTkFrame(inner, fg_color=THEME["surface2"], corner_radius=12,
+                             border_width=1, border_color=THEME["border"])
+        chip1.pack(side="right")
+        ctk.CTkLabel(chip1, text="v" + APP_VERSION, font=FONT_SM,
+                     text_color=THEME["muted"]).pack(padx=12, pady=5)
 
     def _build_menu(self):
         mb = tk.Menu(self.root, bg=THEME["frame"], fg=THEME["fg"], activebackground=THEME["accent"])
@@ -439,7 +508,7 @@ class PDFSuite:
 
     def show_about(self):
         messagebox.showinfo("About PDF Suite Pro",
-            "PDF Suite Pro v2.1\n\nCreator: AYUSH GUPTA\n\n"
+            "PDF Suite Pro v" + APP_VERSION + "\n\nCreator: AYUSH GUPTA\n\n"
             "Merge | Split | Sign | Compress | Redact | Extract\n"
             "Password protect | Page numbers | Grayscale | Flatten\n"
             "And many more PDF tools.")
@@ -457,60 +526,74 @@ class MergeUI:
         self._build()
 
     def _build(self):
-        f = ttk.Frame(self.parent, padding=8)
-        f.pack(fill="both", expand=True)
-        tb = ttk.Frame(f); tb.pack(fill="x", pady=4)
-        
-        # File management section
-        file_f = ttk.LabelFrame(tb, text="Files", padding=4)
-        file_f.pack(side="left", padx=4, fill="y")
-        for t, c in [("+ Add PDFs", self.add_files), ("Remove", self.rem_sel),
-                     ("Clear", self.clear_all), ("Duplicate", self.dup_sel)]:
-            ttk.Button(file_f, text=t, command=c).pack(side="left", padx=2)
-        
-        # File reorder section
-        reorder_f = ttk.LabelFrame(tb, text="Reorder Files", padding=4)
-        reorder_f.pack(side="left", padx=4, fill="y")
-        ttk.Button(reorder_f, text="↑ Up", command=self.move_file_up, width=8).pack(side="left", padx=2)
-        ttk.Button(reorder_f, text="↓ Down", command=self.move_file_down, width=8).pack(side="left", padx=2)
-        ttk.Button(reorder_f, text="⇡ Top", command=self.move_file_top, width=8).pack(side="left", padx=2)
-        ttk.Button(reorder_f, text="⇣ Bottom", command=self.move_file_bottom, width=8).pack(side="left", padx=2)
-        
-        ttk.Separator(tb, orient="vertical").pack(side="left", fill="y", padx=6)
-        
-        ttk.Label(tb, text="Page range:").pack(side="left", padx=(10, 2))
-        self.rng_var = tk.StringVar(value="all")
-        ttk.Entry(tb, textvariable=self.rng_var, width=14).pack(side="left", padx=2)
-        ttk.Button(tb, text="Apply", command=self.apply_range).pack(side="left", padx=2)
+        f = ctk.CTkFrame(self.parent, fg_color="transparent")
+        f.pack(fill="both", expand=True, padx=14, pady=14)
 
-        lf = ttk.Frame(f); lf.pack(fill="both", expand=True, pady=4)
-        self.lb = ReorderListbox(lf, bg=THEME["entry"], fg=THEME["fg"],
-            selectbackground=THEME["accent"], selectforeground="#1e1e2e",
-            font=FONT, relief="flat", highlightthickness=0)
-        sc = ttk.Scrollbar(lf, orient="vertical", command=self.lb.yview)
+        # ── toolbar ──
+        tb = modern_card(f, corner_radius=12); tb.pack(fill="x", pady=(0, 10))
+        t = ctk.CTkFrame(tb, fg_color="transparent"); t.pack(fill="x", padx=10, pady=10)
+        primary_btn(t, "+  Add PDFs", self.add_files, width=126, height=34).pack(side="left")
+        ghost_btn(t, "Remove", self.rem_sel, width=84).pack(side="left", padx=(8, 0))
+        ghost_btn(t, "Duplicate", self.dup_sel, width=88).pack(side="left", padx=(8, 0))
+        ghost_btn(t, "Clear", self.clear_all, width=70).pack(side="left", padx=(8, 0))
+
+        v_sep(t, padx=10)
+        ctk.CTkLabel(t, text="Reorder", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(0, 6))
+        for t_, c_ in [("↑", self.move_file_up), ("↓", self.move_file_down),
+                       ("⇡", self.move_file_top), ("⇣", self.move_file_bottom)]:
+            ghost_btn(t, t_, c_, width=38).pack(side="left", padx=2)
+
+        v_sep(t, padx=10)
+        ctk.CTkLabel(t, text="Page range", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(0, 6))
+        self.rng_var = tk.StringVar(value="all")
+        accent_entry(t, textvariable=self.rng_var, width=110, height=32).pack(side="left")
+        ghost_btn(t, "Apply", self.apply_range, width=70).pack(side="left", padx=(8, 0))
+
+        # ── file list card ──
+        lc = modern_card(f); lc.pack(fill="both", expand=True, pady=(0, 10))
+        hdr = ctk.CTkFrame(lc, fg_color="transparent"); hdr.pack(fill="x", padx=14, pady=(12, 6))
+        ctk.CTkLabel(hdr, text="Merge order", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(side="left")
+        ctk.CTkLabel(hdr, text="Drag rows to reorder — the merged PDF follows this list",
+                     font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(10, 0))
+        self.info_lbl = ctk.CTkLabel(hdr, text="0 files", font=FONT_SM,
+                                     text_color=THEME["muted"])
+        self.info_lbl.pack(side="right")
+
+        lw = ctk.CTkFrame(lc, fg_color="transparent"); lw.pack(fill="both", expand=True, padx=14, pady=(0, 14))
+        self.lb = ReorderListbox(lw, bg=THEME["surface2"], fg=THEME["fg"],
+            selectbackground=THEME["accent"], selectforeground="#ffffff",
+            font=FONT, relief="flat", highlightthickness=0, bd=0,
+            activestyle="none", selectborderwidth=0, height=12)
+        sc = ctk.CTkScrollbar(lw, command=self.lb.yview, width=12,
+            fg_color="transparent", button_color="#2a3247", button_hover_color="#3a4560")
         self.lb.configure(yscrollcommand=sc.set)
-        self.lb.pack(side="left", fill="both", expand=True); sc.pack(side="right", fill="y")
+        self.lb.pack(side="left", fill="both", expand=True)
+        sc.pack(side="right", fill="y", padx=(8, 0))
         self.lb.bind("<<ListboxSelect>>", self.on_sel)
         self.lb.on_move = self._on_files_reordered
-        self.info_lbl = ttk.Label(f, text="0 files", foreground="gray")
-        self.info_lbl.pack(anchor="w")
 
-        bf = ttk.Frame(f); bf.pack(fill="x", pady=4)
-        ttk.Label(bf, text="Output:").pack(side="left", padx=2)
+        # ── output card ──
+        out = modern_card(f, corner_radius=12); out.pack(fill="x", pady=(0, 10))
+        o = ctk.CTkFrame(out, fg_color="transparent"); o.pack(fill="x", padx=10, pady=10)
+        primary_btn(o, "Merge PDFs", self.merge, width=150, height=38).pack(side="right")
+        dark_check(o, "Compress", self.var_compress).pack(side="right", padx=(0, 16))
+        self.pw_e = accent_entry(o, textvariable=self.var_pw, width=150, height=34)
+        self.pw_e.configure(show="*")
+        self.pw_e.pack(side="right", padx=(8, 0))
+        ctk.CTkLabel(o, text="Password", font=FONT_SM, text_color=THEME["muted"]).pack(side="right", padx=(16, 0))
+        ctk.CTkLabel(o, text="Output", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
         self.out_var = tk.StringVar(value="merged.pdf")
-        ttk.Entry(bf, textvariable=self.out_var, width=28).pack(side="left", padx=2)
-        sb = ttk.Frame(bf); sb.pack(side="right")
-        ttk.Label(sb, text="Password:").pack(side="left", padx=(10, 2))
-        self.pw_e = ttk.Entry(sb, textvariable=self.var_pw, width=12, show="*")
-        self.pw_e.pack(side="left", padx=2)
-        ttk.Checkbutton(sb, text="Compress", variable=self.var_compress).pack(side="left", padx=6)
-        ttk.Button(sb, text="  Merge!  ", command=self.merge).pack(side="left", padx=4)
+        accent_entry(o, textvariable=self.out_var, height=34).pack(side="left", fill="x", expand=True, padx=(0, 8))
 
-        ef = ttk.LabelFrame(f, text="Advanced Merge", padding=6); ef.pack(fill="x", pady=4)
-        ttk.Button(ef, text="Insert PDF at Page...", command=self.insert_at_page).pack(side="left", padx=4)
-        ttk.Button(ef, text="Add Cover Page...", command=self.add_cover).pack(side="left", padx=4)
+        # ── advanced card ──
+        adv = modern_card(f, corner_radius=12); adv.pack(fill="x")
+        a = ctk.CTkFrame(adv, fg_color="transparent"); a.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(a, text="Advanced", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
+        ghost_btn(a, "Insert PDF at page…", self.insert_at_page, width=150).pack(side="left", padx=2)
+        ghost_btn(a, "Add cover page…", self.add_cover, width=140).pack(side="left", padx=2)
         self.alt_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(ef, text="Alternate (interleave all)", variable=self.alt_var).pack(side="left", padx=10)
+        dark_check(a, "Alternate (interleave all)", self.alt_var).pack(side="right")
 
     def add_files(self):
         ps = filedialog.askopenfilenames(title="Select PDFs", filetypes=[("PDF", "*.pdf")])
@@ -543,7 +626,7 @@ class MergeUI:
         self.lb.selection_set(i)
 
     def _upd_info(self):
-        self.info_lbl.config(text="%d file(s)" % len(self.files))
+        self.info_lbl.configure(text="%d file(s)  —  drag to reorder" % len(self.files))
 
     def _on_files_reordered(self, a, b):
         """Keep self.files in sync when the user drag-reorders the list,
@@ -726,80 +809,86 @@ class SplitUI:
         self.var_compress = tk.BooleanVar(value=True)
         self._temp_files = []
         self._task_queue = queue.Queue()
+        self._last_cols = None
         self._build()
 
     def _build(self):
-        f = ttk.Frame(self.parent, padding=8); f.pack(fill="both", expand=True)
-        tb = ttk.Frame(f); tb.pack(fill="x", pady=4)
-        ttk.Button(tb, text="Open PDF", command=self.open_pdf).pack(side="left", padx=2)
-        self.file_lbl = ttk.Label(tb, text="No file loaded", foreground="gray")
-        self.file_lbl.pack(side="left", padx=10)
-        self.pg_lbl = ttk.Label(tb, text="")
-        self.pg_lbl.pack(side="left", padx=4)
-        ttk.Label(tb, text="Password:").pack(side="left", padx=(10, 2))
-        ttk.Entry(tb, textvariable=self.var_pw, width=14, show="*").pack(side="left", padx=2)
-        ttk.Button(tb, text="Unlock", command=self.unlock).pack(side="left", padx=2)
+        f = ctk.CTkFrame(self.parent, fg_color="transparent")
+        f.pack(fill="both", expand=True, padx=14, pady=14)
 
-        cf = ttk.Frame(f); cf.pack(fill="both", expand=True, pady=4)
-        self.canvas = tk.Canvas(cf, bg=THEME["canvas_bg"], highlightthickness=0)
-        vs = ttk.Scrollbar(cf, orient="vertical", command=self.canvas.yview)
-        hs = ttk.Scrollbar(cf, orient="horizontal", command=self.canvas.xview)
+        # ── top bar ──
+        top = modern_card(f, corner_radius=12); top.pack(fill="x", pady=(0, 10))
+        t = ctk.CTkFrame(top, fg_color="transparent"); t.pack(fill="x", padx=10, pady=10)
+        primary_btn(t, "Open PDF", self.open_pdf, width=112, height=34).pack(side="left")
+        self.file_lbl = ctk.CTkLabel(t, text="No file loaded", font=FONT_BOLD,
+                                     text_color=THEME["muted"])
+        self.file_lbl.pack(side="left", padx=(14, 6))
+        self.pg_lbl = ctk.CTkLabel(t, text="", font=FONT_SM, text_color=THEME["muted"])
+        self.pg_lbl.pack(side="left")
+        ghost_btn(t, "Unlock", self.unlock, width=84).pack(side="right")
+        self.pw_e = accent_entry(t, textvariable=self.var_pw, width=130, height=32)
+        self.pw_e.configure(show="*")
+        self.pw_e.pack(side="right", padx=(8, 8))
+        ctk.CTkLabel(t, text="Password", font=FONT_SM, text_color=THEME["muted"]).pack(side="right")
+
+        # ── thumbnail area ──
+        view = modern_card(f); view.pack(fill="both", expand=True, pady=(0, 10))
+        inner = ctk.CTkFrame(view, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=10, pady=10)
+        inner.grid_rowconfigure(0, weight=1); inner.grid_columnconfigure(0, weight=1)
+        self.canvas = tk.Canvas(inner, bg=THEME["canvas_bg"], highlightthickness=0)
+        vs = ctk.CTkScrollbar(inner, command=self.canvas.yview, width=12,
+            fg_color="transparent", button_color="#2a3247", button_hover_color="#3a4560")
+        hs = ctk.CTkScrollbar(inner, orientation="horizontal", command=self.canvas.xview, width=12,
+            fg_color="transparent", button_color="#2a3247", button_hover_color="#3a4560")
         self.canvas.configure(yscrollcommand=vs.set, xscrollcommand=hs.set)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        vs.pack(side="right", fill="y"); hs.pack(side="bottom", fill="x")
-        self.tc = ttk.Frame(self.canvas)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        vs.grid(row=0, column=1, sticky="ns", padx=(6, 0))
+        hs.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        self.tc = tk.Frame(self.canvas, bg=THEME["canvas_bg"])
         self.cw = self.canvas.create_window((0, 0), window=self.tc, anchor="nw")
         self.tc.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.cw, width=e.width))
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
 
-        af = ttk.Frame(f); af.pack(fill="x", pady=4)
-        
-        # Page reorder section
-        reorder_f = ttk.LabelFrame(af, text="Page Order", padding=4)
-        reorder_f.pack(side="left", padx=4, fill="y")
-        ttk.Button(reorder_f, text="↑ Move Up", command=self.move_up, width=12).pack(side="left", padx=2)
-        ttk.Button(reorder_f, text="↓ Move Down", command=self.move_down, width=12).pack(side="left", padx=2)
-        ttk.Button(reorder_f, text="↑ Top", command=self.move_top, width=10).pack(side="left", padx=2)
-        ttk.Button(reorder_f, text="↓ Bottom", command=self.move_bottom, width=10).pack(side="left", padx=2)
-        
-        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
-        
-        # Page transform section
-        transform_f = ttk.LabelFrame(af, text="Transform", padding=4)
-        transform_f.pack(side="left", padx=4, fill="y")
-        for t, c in [("Rotate CW", self.rot_cw), ("Rotate CCW", self.rot_ccw),
-                     ("Mirror", self.mirror_pages), ("Grayscale", self.to_grayscale)]:
-            ttk.Button(transform_f, text=t, command=c).pack(side="left", padx=2)
-        
-        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
-        
-        # Page edit section
-        edit_f = ttk.LabelFrame(af, text="Edit Pages", padding=4)
-        edit_f.pack(side="left", padx=4, fill="y")
-        for t, c in [("Delete", self.del_sel), ("Restore All", self.restore),
-                     ("Insert Blank", self.insert_blank), ("Duplicate", self.dup_pgs)]:
-            ttk.Button(edit_f, text=t, command=c).pack(side="left", padx=2)
-        
-        ttk.Separator(af, orient="vertical").pack(side="left", fill="y", padx=6)
-        
-        # Undo/Redo section
-        undo_f = ttk.LabelFrame(af, text="History", padding=4)
-        undo_f.pack(side="left", padx=4, fill="y")
-        self.undo_btn = ttk.Button(undo_f, text="↶ Undo", command=self.undo, state="disabled", width=10)
-        self.undo_btn.pack(side="left", padx=2)
-        self.redo_btn = ttk.Button(undo_f, text="↷ Redo", command=self.redo, state="disabled", width=10)
-        self.redo_btn.pack(side="left", padx=2)
+    def _on_canvas_resize(self, e):
+        self.canvas.itemconfig(self.cw, width=e.width)
+        cols = max(1, e.width // (THUMB_W + 32))
+        if self.doc and cols != self._last_cols:
+            self.parent.after(30, self._render_thumbs)
 
-        bf = ttk.Frame(f); bf.pack(fill="x", pady=4)
-        ttk.Label(bf, text="Extract:").pack(side="left", padx=2)
+        # ── actions card ──
+        act = modern_card(f, corner_radius=12); act.pack(fill="x", pady=(0, 10))
+        r1 = ctk.CTkFrame(act, fg_color="transparent"); r1.pack(fill="x", padx=10, pady=(10, 4))
+        ctk.CTkLabel(r1, text="Page order", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
+        for t_, c_ in [("↑ Up", self.move_up), ("↓ Down", self.move_down),
+                       ("⇡ Top", self.move_top), ("⇣ Bottom", self.move_bottom)]:
+            ghost_btn(r1, t_, c_, width=76).pack(side="left", padx=2)
+        v_sep(r1, padx=8)
+        ctk.CTkLabel(r1, text="Transform", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
+        for t_, c_ in [("Rotate CW", self.rot_cw), ("Rotate CCW", self.rot_ccw),
+                       ("Mirror", self.mirror_pages), ("Grayscale", self.to_grayscale)]:
+            ghost_btn(r1, t_, c_, width=92).pack(side="left", padx=2)
+        self.redo_btn = ghost_btn(r1, "Redo ↷", self.redo, width=76)
+        self.redo_btn.pack(side="right", padx=(4, 0))
+        self.undo_btn = ghost_btn(r1, "Undo ↶", self.undo, width=76)
+        self.undo_btn.pack(side="right", padx=4)
+        self._update_undo_buttons()
+
+        r2 = ctk.CTkFrame(act, fg_color="transparent"); r2.pack(fill="x", padx=10, pady=(4, 10))
+        ctk.CTkLabel(r2, text="Pages", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
+        ghost_btn(r2, "Delete", self.del_sel, width=76).pack(side="left", padx=2)
+        ghost_btn(r2, "Restore", self.restore, width=82).pack(side="left", padx=2)
+        ghost_btn(r2, "Insert blank", self.insert_blank, width=100).pack(side="left", padx=2)
+        ghost_btn(r2, "Duplicate", self.dup_pgs, width=88).pack(side="left", padx=2)
+        v_sep(r2, padx=8)
+        ctk.CTkLabel(r2, text="Export", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
         self.ext_var = tk.StringVar()
-        ttk.Entry(bf, textvariable=self.ext_var, width=20).pack(side="left", padx=2)
-        ttk.Button(bf, text="Extract", command=self.extract_range).pack(side="left", padx=2)
-        ttk.Button(bf, text="Split All", command=self.split_all).pack(side="left", padx=6)
-        ttk.Button(bf, text="Bookmarks", command=self.split_bookmarks).pack(side="left", padx=2)
-        ttk.Button(bf, text="Save As", command=self.save_as).pack(side="left", padx=6)
-        ttk.Separator(bf, orient="vertical").pack(side="left", fill="y", padx=6)
-        ttk.Checkbutton(bf, text="Compress", variable=self.var_compress).pack(side="left", padx=4)
+        accent_entry(r2, textvariable=self.ext_var, width=110, height=32).pack(side="left", padx=(0, 6))
+        ghost_btn(r2, "Extract", self.extract_range, width=78).pack(side="left", padx=2)
+        ghost_btn(r2, "Split all", self.split_all, width=84).pack(side="left", padx=2)
+        ghost_btn(r2, "Bookmarks", self.split_bookmarks, width=96).pack(side="left", padx=2)
+        dark_check(r2, "Compress", self.var_compress).pack(side="right")
+        primary_btn(r2, "Save As", self.save_as, width=100, height=34).pack(side="right", padx=(0, 14))
 
     def open_pdf(self):
         p = filedialog.askopenfilename(title="Open PDF", filetypes=[("PDF", "*.pdf")])
@@ -810,8 +899,8 @@ class SplitUI:
             doc = fitz.open(path)
             if doc.is_encrypted:
                 self._clear_thumbs(); self.doc = doc; self.doc_path = path
-                self.file_lbl.config(text=os.path.basename(path), foreground="orange")
-                self.pg_lbl.config(text="(encrypted)"); self.app.add_recent(path); return
+                self.file_lbl.configure(text=os.path.basename(path), text_color=THEME["warning"])
+                self.pg_lbl.configure(text="(encrypted)"); self.app.add_recent(path); return
             self._set_doc(doc, path); self.app.add_recent(path)
         except Exception as e:
             messagebox.showerror("Error", "Cannot open:\n%s" % e)
@@ -832,8 +921,8 @@ class SplitUI:
         self.page_rots.clear(); self.page_del.clear(); self._sel.clear()
         self._search_highlights.clear()
         self._undo_stack.clear(); self._redo_stack.clear(); self._update_undo_buttons()
-        self.file_lbl.config(text=os.path.basename(path), foreground=THEME["fg"])
-        self.pg_lbl.config(text="%d page(s)" % len(doc))
+        self.file_lbl.configure(text=os.path.basename(path), text_color=THEME["fg"])
+        self.pg_lbl.configure(text="%d page(s)" % len(doc))
         self._render_thumbs()
 
     def _clear_thumbs(self):
@@ -846,14 +935,31 @@ class SplitUI:
 
     def _render_thumbs(self):
         self._clear_thumbs()
-        if not self.doc: return
+        if not self.doc:
+            self._last_cols = None
+            holder = tk.Frame(self.tc, bg=THEME["canvas_bg"])
+            holder.pack(pady=60)
+            tk.Label(holder, text="Open a PDF to see page thumbnails here",
+                     font=FONT, bg=THEME["canvas_bg"], fg=THEME["muted"]).pack()
+            return
         cols = max(1, self.canvas.winfo_width() // (THUMB_W + 32))
+        self._last_cols = cols
         rf = None; rc = 0
         for i in range(len(self.doc)):
             if rc % cols == 0:
-                rf = ttk.Frame(self.tc); rf.pack(fill="x", pady=6)
+                rf = tk.Frame(self.tc, bg=THEME["canvas_bg"]); rf.pack(fill="x", pady=6)
             rc += 1
-            f2 = tk.Frame(rf, bg=THEME["canvas_bg"], highlightthickness=2, highlightbackground=THEME["border"])
+            sel = i in self._sel; hilite = i in self._search_highlights
+            deleted = i in self.page_del
+            if deleted:
+                wrap_bg, border, cap = "#2a1216", THEME["danger"], THEME["danger"]
+            elif sel:
+                wrap_bg, border, cap = "#1b2340", THEME["accent"], THEME["accent_h"]
+            elif hilite:
+                wrap_bg, border, cap = "#2a2212", THEME["warning"], THEME["warning"]
+            else:
+                wrap_bg, border, cap = THEME["canvas_bg"], THEME["border"], THEME["muted"]
+            f2 = tk.Frame(rf, bg=wrap_bg, highlightthickness=2, highlightbackground=border)
             f2.pack(side="left", padx=8, pady=4)
             pg = self.doc[i]
             mat = fitz.Matrix(THUMB_W / pg.rect.width, THUMB_H / pg.rect.height)
@@ -863,37 +969,23 @@ class SplitUI:
             self._temp_files.append(tmp.name)
             photo = tk.PhotoImage(file=tmp.name)
             self.page_images.append(photo)
-            sel = i in self._sel; hilite = i in self._search_highlights
-            deleted = i in self.page_del
-            if deleted:
-                bg = "#5a1a1a"
-                border = THEME["danger"]
-            elif sel:
-                bg = THEME["accent"]
-                border = THEME["accent2"]
-            elif hilite:
-                bg = "#5a5a1a"
-                border = "#f1c40f"
-            else:
-                bg = THEME["canvas_bg"]
-                border = THEME["border"]
             f2.configure(highlightbackground=border, highlightcolor=border)
-            lbl = tk.Label(f2, image=photo, relief="flat", bd=0, bg=bg)
-            lbl.pack(padx=2, pady=2)
+            lbl = tk.Label(f2, image=photo, relief="flat", bd=0, bg=wrap_bg)
+            lbl.pack(padx=3, pady=(3, 2))
             lbl.bind("<Button-1>", lambda e, idx=i: self._toggle(idx))
             # Page label with status
             status = ""
             if deleted:
-                status = " ✗ DELETED"
+                status = " · Deleted"
             elif sel:
-                status = " ✓ SELECTED"
+                status = " · Selected"
             elif hilite:
-                status = " 🔍 FOUND"
+                status = " · Match"
             rot = self.page_rots.get(i, 0)
             if rot:
-                status += f" ↻{rot}°"
-            tk.Label(f2, text=f"Page {i + 1}{status}", font=FONT_SM,
-                    bg=bg, fg=THEME["fg"]).pack(pady=(0, 4))
+                status += " · %d°" % rot
+            tk.Label(f2, text="Page %d%s" % (i + 1, status), font=FONT_SM,
+                    bg=wrap_bg, fg=cap).pack(pady=(0, 4), padx=4)
 
     def _pg_label(self, i):
         parts = ["Page %d" % (i + 1)]
@@ -1151,19 +1243,20 @@ class SplitUI:
             self.parent.after(0, lambda: messagebox.showinfo("Search", "No results found."))
 
     def _show_search_results(self, results):
-        top = tk.Toplevel(self.parent)
+        top = ctk.CTkToplevel(self.parent)
         top.title("Search Results")
-        top.geometry("500x350")
+        top.geometry("560x420")
         top.transient(self.parent)
-        f = ttk.Frame(top, padding=8); f.pack(fill="both", expand=True)
-        ttk.Label(f, text="%d result(s):" % len(results)).pack(anchor="w")
-        txt = tk.Text(f, wrap="word", bg=THEME["entry"], fg=THEME["fg"], font=FONT)
-        sc = ttk.Scrollbar(f, orient="vertical", command=txt.yview)
-        txt.configure(yscrollcommand=sc.set)
-        txt.pack(side="left", fill="both", expand=True); sc.pack(side="right", fill="y")
+        top.configure(fg_color=THEME["bg"])
+        f = ctk.CTkFrame(top, fg_color="transparent"); f.pack(fill="both", expand=True, padx=14, pady=14)
+        ctk.CTkLabel(f, text="%d result(s)" % len(results), font=FONT_BOLD,
+                     text_color=THEME["fg"]).pack(anchor="w")
+        txt = ctk.CTkTextbox(f, corner_radius=10, fg_color=THEME["surface2"],
+            border_width=1, border_color=THEME["border"], text_color=THEME["fg"], font=FONT)
+        txt.pack(fill="both", expand=True, pady=(8, 10))
         txt.insert("1.0", "\n".join(results))
         txt.configure(state="disabled")
-        ttk.Button(f, text="Close", command=top.destroy).pack(pady=4)
+        ghost_btn(f, "Close", top.destroy, width=100).pack(anchor="e")
 
     def goto_page(self):
         if not self.doc: return
@@ -1333,85 +1426,113 @@ class ToolsUI:
         self.image_paths = []
         self._build()
 
-    def _accent_btn(self, parent, text, command):
-        b = tk.Button(parent, text=text, command=command,
-            bg=THEME["accent"], fg="#1e1e2e", font=FONT_BOLD,
-            relief="flat", padx=16, pady=8, cursor="hand2",
-            activebackground=THEME["accent2"], activeforeground="#1e1e2e")
-        b.pack(pady=4, fill="x")
-        return b
-
     def _build(self):
-        main = ttk.Frame(self.parent, padding=10)
-        main.pack(fill="both", expand=True)
-        left = ttk.Frame(main); left.pack(side="left", fill="both", expand=True, padx=(0, 6))
-        right = ttk.Frame(main); right.pack(side="right", fill="both", expand=True, padx=(6, 0))
+        main = ctk.CTkScrollableFrame(self.parent, fg_color="transparent",
+            scrollbar_fg_color="transparent", scrollbar_button_color="#2a3247",
+            scrollbar_button_hover_color="#3a4560")
+        main.pack(fill="both", expand=True, padx=(14, 8), pady=14)
+        main.grid_columnconfigure(0, weight=1, uniform="tools")
+        main.grid_columnconfigure(1, weight=1, uniform="tools")
+        left = ctk.CTkFrame(main, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="new", padx=(0, 7))
+        right = ctk.CTkFrame(main, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="new", padx=(7, 7))
 
-        # ── Left ──
-        sig = ttk.LabelFrame(left, text="Digital Signature", padding=8)
-        sig.pack(fill="x", pady=4)
-        ttk.Label(sig, text="Signer:", font=FONT_BOLD).pack(anchor="w")
+        # ── Left column ──
+        sig = modern_card(left); sig.pack(fill="x", pady=(0, 12))
+        s = ctk.CTkFrame(sig, fg_color="transparent"); s.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(s, text="Digital signature", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w")
+        ctk.CTkLabel(s, text="Add a signature block to any PDF", font=FONT_SM,
+                     text_color=THEME["muted"]).pack(anchor="w", pady=(0, 10))
+        ctk.CTkLabel(s, text="Signer", font=FONT_SM, text_color=THEME["muted"]).pack(anchor="w")
         self.signer_var = tk.StringVar(value="AYUSH GUPTA")
-        ttk.Entry(sig, textvariable=self.signer_var, font=("Segoe UI", 11, "bold"), width=30).pack(fill="x", pady=2)
-        sf = ttk.Frame(sig); sf.pack(fill="x", pady=4)
-        ttk.Label(sf, text="Position:").pack(side="left")
-        self.sig_pos = ttk.Combobox(sf, values=["Bottom-Right", "Bottom-Left", "Top-Right", "Top-Left", "Center"], state="readonly", width=14)
-        self.sig_pos.set("Bottom-Right"); self.sig_pos.pack(side="left", padx=6)
-        ttk.Label(sf, text=" Page:").pack(side="left")
+        accent_entry(s, textvariable=self.signer_var, font=("Segoe UI", 12, "bold")).pack(fill="x", pady=(2, 8))
+        sf = ctk.CTkFrame(s, fg_color="transparent"); sf.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(sf, text="Position", font=FONT_SM, text_color=THEME["muted"]).pack(side="left")
+        self.sig_pos = ctk.CTkComboBox(sf, values=["Bottom-Right", "Bottom-Left", "Top-Right", "Top-Left", "Center"],
+            state="readonly", width=140, height=32, corner_radius=9,
+            fg_color=THEME["surface2"], border_color=THEME["border"], button_color=THEME["surface2"],
+            button_hover_color=THEME["hover"], dropdown_fg_color=THEME["surface2"],
+            dropdown_hover_color=THEME["hover"], text_color=THEME["fg"], font=FONT)
+        self.sig_pos.set("Bottom-Right"); self.sig_pos.pack(side="left", padx=(8, 16))
+        ctk.CTkLabel(sf, text="Page", font=FONT_SM, text_color=THEME["muted"]).pack(side="left")
         self.sig_page = tk.StringVar(value="last")
-        ttk.Entry(sf, textvariable=self.sig_page, width=5).pack(side="left", padx=2)
-        ttk.Label(sf, text="(1 / last)").pack(side="left")
-        self._accent_btn(sig, "Sign PDF", self.sign_pdf)
+        accent_entry(sf, textvariable=self.sig_page, width=64, height=32).pack(side="left", padx=(8, 6))
+        ctk.CTkLabel(sf, text="(1 / last)", font=FONT_SM, text_color=THEME["muted"]).pack(side="left")
+        primary_btn(s, "Sign PDF", self.sign_pdf, height=36).pack(fill="x")
 
-        imgc = ttk.LabelFrame(left, text="Image Compression", padding=8)
-        imgc.pack(fill="x", pady=4)
-        ttk.Button(imgc, text="Add Images", command=self.add_images).pack(anchor="w", pady=2)
-        self.img_lbl = ttk.Label(imgc, text="0 images added", foreground="gray")
-        self.img_lbl.pack(anchor="w")
-        qf = ttk.Frame(imgc); qf.pack(fill="x", pady=4)
-        ttk.Label(qf, text="Quality (1-100):").pack(side="left")
-        self.img_q = tk.IntVar(value=60)
-        ttk.Scale(qf, from_=1, to=100, variable=self.img_q, orient="horizontal", length=150).pack(side="left", padx=6)
-        self.img_q_lbl = ttk.Label(qf, text="60")
-        self.img_q_lbl.pack(side="left")
-        self.img_q.trace("w", lambda *a: self.img_q_lbl.config(text=str(self.img_q.get())))
-        ttk.Button(imgc, text="Compress Images", command=self.compress_images).pack(anchor="w", pady=2)
+        imgc = modern_card(left); imgc.pack(fill="x", pady=(0, 12))
+        i2 = ctk.CTkFrame(imgc, fg_color="transparent"); i2.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(i2, text="Image compression", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w")
+        ctk.CTkLabel(i2, text="Shrink JPG/PNG images with a quality slider", font=FONT_SM,
+                     text_color=THEME["muted"]).pack(anchor="w", pady=(0, 10))
+        ifrow = ctk.CTkFrame(i2, fg_color="transparent"); ifrow.pack(fill="x")
+        ghost_btn(ifrow, "Add images", self.add_images, width=110).pack(side="left")
+        self.img_lbl = ctk.CTkLabel(ifrow, text="0 images added", font=FONT_SM,
+                                    text_color=THEME["muted"])
+        self.img_lbl.pack(side="left", padx=10)
+        qf = ctk.CTkFrame(i2, fg_color="transparent"); qf.pack(fill="x", pady=(10, 4))
+        ctk.CTkLabel(qf, text="Quality", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(0, 8))
+        self.img_q = ctk.CTkSlider(qf, from_=1, to=100, number_of_steps=99, command=self._on_img_q,
+            height=18, fg_color=THEME["surface2"], progress_color=THEME["accent"],
+            button_color=THEME["accent"], button_hover_color=THEME["accent_h"])
+        self.img_q.set(60); self.img_q.pack(side="left", fill="x", expand=True)
+        self.img_q_lbl = ctk.CTkLabel(qf, text="60", font=FONT_BOLD, text_color=THEME["fg"], width=36)
+        self.img_q_lbl.pack(side="left", padx=(8, 0))
+        ghost_btn(i2, "Compress images", self.compress_images).pack(fill="x", pady=(10, 0))
 
-        pdfc = ttk.LabelFrame(left, text="PDF Compression", padding=8)
-        pdfc.pack(fill="x", pady=4)
-        ttk.Label(pdfc, text="Level:").pack(anchor="w")
+        pdfc = modern_card(left); pdfc.pack(fill="x")
+        p2 = ctk.CTkFrame(pdfc, fg_color="transparent"); p2.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(p2, text="PDF compression", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w")
+        ctk.CTkLabel(p2, text="Reduce file size with different optimization levels", font=FONT_SM,
+                     text_color=THEME["muted"]).pack(anchor="w", pady=(0, 10))
         lvls = ["Low (garbage)", "Medium (deflate)", "High (deflate+images)", "Max (full optimize)"]
-        self.pdf_comp_lvl = ttk.Combobox(pdfc, values=lvls, state="readonly", width=30)
-        self.pdf_comp_lvl.set("Medium (deflate)"); self.pdf_comp_lvl.pack(anchor="w", pady=2)
-        ttk.Button(pdfc, text="Compress PDF...", command=self.compress_pdf).pack(anchor="w", pady=2)
+        self.pdf_comp_lvl = ctk.CTkComboBox(p2, values=lvls, state="readonly", height=32, corner_radius=9,
+            fg_color=THEME["surface2"], border_color=THEME["border"], button_color=THEME["surface2"],
+            button_hover_color=THEME["hover"], dropdown_fg_color=THEME["surface2"],
+            dropdown_hover_color=THEME["hover"], text_color=THEME["fg"], font=FONT)
+        self.pdf_comp_lvl.set("Medium (deflate)"); self.pdf_comp_lvl.pack(fill="x", pady=(0, 10))
+        ghost_btn(p2, "Compress PDF…", self.compress_pdf).pack(fill="x")
 
-        # ── Right ──
-        conv = ttk.LabelFrame(right, text="Convert & Extract", padding=8)
-        conv.pack(fill="x", pady=4)
-        ttk.Button(conv, text="Images to PDF...", command=self.images_to_pdf).pack(fill="x", pady=2)
-        self._btn(conv, "Extract Text from PDF...", lambda: self._run_split("extract_text"))
-        self._btn(conv, "Extract Images from PDF...", lambda: self._run_split("extract_images"))
-        self._btn(conv, "Convert to Grayscale...", lambda: self._run_split("to_grayscale"))
+        # ── Right column ──
+        conv = modern_card(right); conv.pack(fill="x", pady=(0, 12))
+        c1 = ctk.CTkFrame(conv, fg_color="transparent"); c1.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(c1, text="Convert & extract", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w", pady=(0, 8))
+        ghost_btn(c1, "Images to PDF…", self.images_to_pdf).pack(fill="x", pady=3)
+        self._btn(c1, "Extract text from PDF…", lambda: self._run_split("extract_text"))
+        self._btn(c1, "Extract images from PDF…", lambda: self._run_split("extract_images"))
+        self._btn(c1, "Convert to grayscale…", lambda: self._run_split("to_grayscale"))
 
-        redact = ttk.LabelFrame(right, text="Security & Cleanup", padding=8)
-        redact.pack(fill="x", pady=4)
-        ttk.Button(redact, text="Redact Text...", command=self.redact_text).pack(fill="x", pady=2)
-        ttk.Button(redact, text="Remove Metadata", command=self.remove_metadata).pack(fill="x", pady=2)
-        ttk.Button(redact, text="Password Protect PDF...", command=self.password_protect).pack(fill="x", pady=2)
-        ttk.Button(redact, text="Remove Password from PDF...", command=self.remove_password).pack(fill="x", pady=2)
+        sec = modern_card(right); sec.pack(fill="x", pady=(0, 12))
+        c2 = ctk.CTkFrame(sec, fg_color="transparent"); c2.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(c2, text="Security & cleanup", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w", pady=(0, 8))
+        ghost_btn(c2, "Redact text…", self.redact_text).pack(fill="x", pady=3)
+        ghost_btn(c2, "Remove metadata", self.remove_metadata).pack(fill="x", pady=3)
+        ghost_btn(c2, "Password protect PDF…", self.password_protect).pack(fill="x", pady=3)
+        ghost_btn(c2, "Remove password from PDF…", self.remove_password).pack(fill="x", pady=3)
 
-        misc = ttk.LabelFrame(right, text="Miscellaneous", padding=8)
-        misc.pack(fill="x", pady=4)
-        ttk.Button(misc, text="Add Page Numbers", command=self.add_page_numbers).pack(fill="x", pady=2)
-        ttk.Button(misc, text="Flatten PDF (annotations)", command=self.flatten_pdf).pack(fill="x", pady=2)
-        self._btn(misc, "Clone Open PDF x2", lambda: self._run_split("dup_pgs"))
-        ttk.Separator(misc, orient="horizontal").pack(fill="x", pady=4)
-        tk.Button(misc, text="\u2605 Rate & Review", font=FONT_BOLD,
-            bg=THEME["accent"], fg="#1e1e2e", relief="flat", cursor="hand2",
-            command=self.open_rating).pack(fill="x", pady=2)
+        misc = modern_card(right); misc.pack(fill="x")
+        c3 = ctk.CTkFrame(misc, fg_color="transparent"); c3.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(c3, text="Miscellaneous", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w", pady=(0, 8))
+        ghost_btn(c3, "Add page numbers", self.add_page_numbers).pack(fill="x", pady=3)
+        ghost_btn(c3, "Flatten PDF (annotations)", self.flatten_pdf).pack(fill="x", pady=3)
+        self._btn(c3, "Clone open PDF x2", lambda: self._run_split("dup_pgs"))
+        ctk.CTkFrame(c3, height=1, fg_color=THEME["border"]).pack(fill="x", pady=8)
+        ctk.CTkButton(c3, text="★  Rate & Review", command=self.open_rating, height=36,
+            fg_color=THEME["accent2"], hover_color="#9d74ff", text_color="#ffffff",
+            corner_radius=9, font=FONT_BOLD).pack(fill="x")
+
+    def _on_img_q(self, v):
+        self.img_q_lbl.configure(text=str(int(round(float(v)))))
 
     def _btn(self, parent, text, cmd):
-        ttk.Button(parent, text=text, command=cmd).pack(fill="x", pady=2)
+        ghost_btn(parent, text, cmd, width=140).pack(fill="x", pady=3)
 
     def open_rating(self):
         RatingDialog(self.parent)
@@ -1464,12 +1585,12 @@ class ToolsUI:
     def add_images(self):
         ps = filedialog.askopenfilenames(title="Select images", filetypes=[("Images", "*.jpg *.jpeg *.png *.bmp *.webp")])
         self.image_paths.extend(ps)
-        self.img_lbl.config(text="%d image(s) added" % len(self.image_paths))
+        self.img_lbl.configure(text="%d image(s) added" % len(self.image_paths))
 
     def compress_images(self):
         if not self.image_paths:
             messagebox.showerror("Error", "Add images first."); return
-        q = self.img_q.get()
+        q = int(round(float(self.img_q.get())))
         d = filedialog.askdirectory(title="Output folder")
         if not d: return
         try:
@@ -1643,6 +1764,7 @@ if __name__ == "__main__":
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except: pass
-    root = tk.Tk()
+    ctk.set_appearance_mode("dark")
+    root = ctk.CTk()
     app = PDFSuite(root)
     root.mainloop()

@@ -3,7 +3,7 @@ PDF Suite Pro — Installation Guide
 
 App:     PDF Suite Pro
 Creator: AYUSH GUPTA
-Version: v2.3
+Version: v3.0
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
 
