@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
-import os, json, tempfile, threading, queue
+import os, json, re, tempfile, threading, queue, subprocess, webbrowser
+import urllib.request, urllib.error
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -58,12 +59,43 @@ def check_windows_version():
 check_windows_version()
 
 APP_NAME = "PDF Suite Pro"
-APP_VERSION = "4.0"
+APP_VERSION = "4.1"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_FILE = SETTINGS_DIR / "settings.json"
 THUMB_W, THUMB_H = 130, 170
 MAX_RECENT = 15
+
+# ─── GitHub auto-update ───
+GITHUB_REPO = "learnerarchitecture-debug/PDFMERGER"
+UPDATE_API = "https://api.github.com/repos/%s/releases/latest" % GITHUB_REPO
+RELEASES_PAGE = "https://github.com/%s/releases" % GITHUB_REPO
+
+
+def resource_path(name):
+    """Path to a bundled data file (works in source and PyInstaller onefile)."""
+    base = getattr(sys, "_MEIPASS", None) or os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, name)
+
+
+def version_tuple(v):
+    parts = []
+    for x in re.findall(r"\d+", str(v or ""))[:3]:
+        try:
+            parts.append(int(x))
+        except ValueError:
+            pass
+    parts += [0] * (3 - len(parts))
+    return tuple(parts[:3])
+
+
+def fetch_latest_release():
+    """Return the latest GitHub release dict (raises on network/API errors)."""
+    req = urllib.request.Request(UPDATE_API, headers={
+        "User-Agent": "PDFSuitePro-%s" % APP_VERSION,
+        "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8", "replace"))
 
 # ─── Modern dark theme (2026 design) ───
 THEME = {
@@ -411,6 +443,7 @@ class PDFSuite:
 
         self.settings = load_settings()
         self.recent_files = self.settings.get("recent_files", [])
+        self._update_dlg = None
 
         self._build_menu()
         self._build_header()
@@ -440,6 +473,10 @@ class PDFSuite:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self._setup_dnd()
         self._setup_shortcuts()
+
+        # silent update check a few seconds after startup
+        if (self.settings or {}).get("auto_update_check", True):
+            self.root.after(3500, lambda: self.check_updates(silent=True))
 
     def _build_header(self):
         """Modern header banner"""
@@ -660,28 +697,56 @@ class PDFSuite:
         self.root.after(120, poll)
 
     # ── update checker ──
-    def check_updates(self):
-        import urllib.request
-        try:
-            req = urllib.request.Request(
-                "https://api.github.com/repos/learnerarchitecture-debug/PDFMERGER/releases/latest",
-                headers={"User-Agent": "PDFSuitePro"})
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                data = json.loads(resp.read().decode("utf-8", "replace"))
-            latest = (data.get("tag_name") or "").lstrip("v")
-            if latest and latest != APP_VERSION:
-                if messagebox.askyesno("Update available",
-                        "Latest release: v%s\nYou have: v%s\n\nOpen the download page?"
-                        % (latest, APP_VERSION)):
-                    import webbrowser
-                    webbrowser.open(data.get("html_url")
-                        or "https://github.com/learnerarchitecture-debug/PDFMERGER/releases")
-            else:
+    def check_updates(self, silent=False):
+        """Check GitHub for a newer release and offer to download + install."""
+        def worker():
+            res = {"ok": True, "rel": None, "err": None}
+            try:
+                res["rel"] = fetch_latest_release()
+            except urllib.error.HTTPError as e:
+                if e.code != 404:
+                    res["ok"] = False
+                    res["err"] = "GitHub error %s" % e.code
+            except Exception as e:
+                res["ok"] = False
+                res["err"] = str(e)
+            try:
+                self.root.after(0, lambda: self._update_result(res, silent))
+            except Exception:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _update_result(self, res, silent):
+        if not res["ok"]:
+            if not silent:
+                messagebox.showwarning("Check for updates",
+                    "Could not check for updates right now.\n%s" % res["err"])
+            return
+        data = res["rel"]
+        if not data:
+            if not silent:
+                messagebox.showinfo("Check for updates",
+                    "No releases have been published yet on GitHub.")
+            return
+        latest = (data.get("tag_name") or "").lstrip("vV")
+        if not latest or version_tuple(latest) <= version_tuple(APP_VERSION):
+            if not silent:
                 messagebox.showinfo("Check for updates",
                     "You are running the latest version (v%s)." % APP_VERSION)
-        except Exception as e:
-            messagebox.showinfo("Check for updates",
-                "Could not check for updates right now.\n%s" % e)
+            return
+        if silent and (self.settings or {}).get("skip_version") == latest:
+            return
+        dlg = getattr(self, "_update_dlg", None)
+        if dlg is not None and dlg.winfo_exists():
+            if not silent:
+                try:
+                    dlg.lift()
+                    dlg.focus_force()
+                except Exception:
+                    pass
+            return
+        self._update_dlg = UpdateDialog(self.root, self, data, latest)
 
 
 # ═══════════════════════ MERGE UI ═══════════════════════
@@ -4294,6 +4359,179 @@ class AutomationUI:
             messagebox.showinfo("Command line", example)
 
 
+# ═══════════════════════ UPDATE DIALOG (v4.1) ═══════════════════════
+class UpdateDialog(ctk.CTkToplevel):
+    """Shows a new release, downloads the installer from GitHub and runs it."""
+
+    def __init__(self, parent, app, release, latest):
+        super().__init__(parent)
+        self.app = app
+        self.release = release or {}
+        self.latest = latest
+        self.asset = None
+        for a in self.release.get("assets") or []:
+            n = (a.get("name") or "").lower()
+            if n.endswith(".exe") and "installer" in n:
+                self.asset = a
+                break
+        if self.asset is None:
+            for a in self.release.get("assets") or []:
+                if (a.get("name") or "").lower().endswith(".exe"):
+                    self.asset = a
+                    break
+
+        self.title("Update available")
+        self.configure(fg_color=THEME["bg"])
+        self.resizable(False, False)
+        self.transient(parent)
+        w, h = 560, 470
+        try:
+            px = parent.winfo_rootx() + max(0, (parent.winfo_width() - w) // 2)
+            py = parent.winfo_rooty() + max(0, (parent.winfo_height() - h) // 3)
+            self.geometry("%dx%d+%d+%d" % (w, h, px, py))
+        except Exception:
+            self.geometry("%dx%d" % (w, h))
+        self.protocol("WM_DELETE_WINDOW", self.later)
+
+        c = ctk.CTkFrame(self, fg_color="transparent")
+        c.pack(fill="both", expand=True, padx=18, pady=16)
+        ctk.CTkLabel(c, text="A new version is available", font=FONT_LARGE,
+                     text_color=THEME["fg"]).pack(anchor="w")
+        ctk.CTkLabel(c, text="v%s  →  v%s" % (APP_VERSION, latest),
+                     font=FONT_BOLD, text_color=THEME["accent_h"]).pack(anchor="w",
+                                                                        pady=(4, 8))
+        notes = (self.release.get("body") or "No release notes.").strip()
+        self.notes_box = ctk.CTkTextbox(c, corner_radius=10, fg_color=THEME["surface2"],
+            border_width=1, border_color=THEME["border"], text_color=THEME["fg"],
+            font=FONT_SM, height=185, wrap="word")
+        self.notes_box.pack(fill="both", expand=True)
+        self.notes_box.insert("1.0", notes)
+        self.notes_box.configure(state="disabled")
+
+        self.status = ctk.CTkLabel(c, text="", font=FONT_SM, text_color=THEME["muted"])
+        self.status.pack(anchor="w", pady=(8, 0))
+        self.progress = ctk.CTkProgressBar(c, height=10, corner_radius=5,
+            fg_color=THEME["surface2"], progress_color=THEME["accent"])
+        self.progress.set(0)
+
+        btns = ctk.CTkFrame(c, fg_color="transparent")
+        btns.pack(fill="x", pady=(12, 0))
+        self.update_btn = primary_btn(btns, "Download & Install", self.start_update,
+                                      width=170, height=36)
+        self.update_btn.pack(side="left")
+        ghost_btn(btns, "Open release page", self.open_page,
+                  width=150).pack(side="left", padx=8)
+        ghost_btn(btns, "Later", self.later, width=80).pack(side="right")
+        row2 = ctk.CTkFrame(c, fg_color="transparent")
+        row2.pack(fill="x", pady=(8, 0))
+        self.skip_var = tk.BooleanVar(value=False)
+        dark_check(row2, "Don't remind me about v%s" % latest,
+                   self.skip_var).pack(side="left")
+
+        try:
+            self.lift()
+            self.focus_force()
+        except Exception:
+            pass
+
+    def _closed(self):
+        try:
+            self.app._update_dlg = None
+        except Exception:
+            pass
+
+    def later(self):
+        if self.skip_var.get():
+            s = dict(self.app.settings or {})
+            s["skip_version"] = self.latest
+            self.app.settings = s
+            save_settings(s)
+        self._closed()
+        self.destroy()
+
+    def open_page(self):
+        webbrowser.open(self.release.get("html_url") or RELEASES_PAGE)
+
+    def start_update(self):
+        if not self.asset:
+            self.open_page()
+            return
+        url = self.asset.get("browser_download_url")
+        name = self.asset.get("name") or "PDFSuitePro_Installer.exe"
+        total = int(self.asset.get("size") or 0)
+        dest = os.path.join(tempfile.gettempdir(), name)
+        self.update_btn.configure(state="disabled", text="Downloading…")
+        self.progress.pack(fill="x", pady=(4, 0))
+        self.status.configure(text="Downloading v%s…" % self.latest)
+        q = queue.Queue()
+
+        def worker():
+            try:
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "PDFSuitePro-%s" % APP_VERSION})
+                got = 0
+                with urllib.request.urlopen(req, timeout=30) as r, \
+                        open(dest, "wb") as f:
+                    while True:
+                        chunk = r.read(65536)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        got += len(chunk)
+                        q.put(("p", got, total))
+                q.put(("done", dest))
+            except Exception as e:
+                q.put(("err", str(e)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        def poll():
+            try:
+                while True:
+                    item = q.get_nowait()
+                    if item[0] == "p":
+                        got, tot = item[1], item[2]
+                        if tot:
+                            self.progress.set(min(1.0, float(got) / tot))
+                            self.status.configure(
+                                text="Downloading… %d%%" % int(100.0 * got / tot))
+                        else:
+                            self.status.configure(
+                                text="Downloading… %.1f MB" % (got / 1048576.0))
+                    elif item[0] == "done":
+                        self.progress.set(1.0)
+                        self.status.configure(text="Download complete")
+                        self._install(item[1])
+                        return
+                    else:
+                        self.update_btn.configure(state="normal",
+                                                  text="Download & Install")
+                        self.status.configure(text="Download failed: %s" % item[1])
+                        return
+            except queue.Empty:
+                pass
+            self.after(120, poll)
+
+        self.after(120, poll)
+
+    def _install(self, path):
+        if not messagebox.askyesno("Ready to install",
+                "PDF Suite Pro v%s has been downloaded.\n\n"
+                "Run the setup now? The application will close so the files "
+                "can be updated." % self.latest, parent=self):
+            self.status.configure(text="Installer saved to: %s" % path)
+            return
+        try:
+            subprocess.Popen([path])
+        except Exception as e:
+            messagebox.showerror("Update",
+                "Could not start the installer:\n%s" % e, parent=self)
+            return
+        self._closed()
+        self.destroy()
+        self.app.root.after(800, self.app.root.destroy)
+
+
 # ═══════════════════════ ENTRY ═══════════════════════
 if __name__ == "__main__":
     try:
@@ -4303,5 +4541,9 @@ if __name__ == "__main__":
         pass
     ctk.set_appearance_mode("dark")
     root = ctk.CTk()
+    try:
+        root.iconbitmap(resource_path("app_icon.ico"))
+    except Exception:
+        pass
     app = PDFSuite(root)
     root.mainloop()

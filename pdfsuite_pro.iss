@@ -1,5 +1,5 @@
 #define AppName "PDF Suite Pro"
-#define AppVersion "4.0"
+#define AppVersion "4.1"
 #define AppPublisher "AYUSH GUPTA"
 #define AppURL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 #define SourceExe "dist\PDF Suite Pro.exe"
@@ -13,6 +13,8 @@ AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/issues
 DefaultDirName={pf}\{#AppName}
 DefaultGroupName={#AppName}
+SetupIconFile=app_icon.ico
+UninstallDisplayIcon={app}\PDF Suite Pro.exe
 OutputBaseFilename=PDFSuitePro_Installer
 OutputDir=.
 Compression=lzma

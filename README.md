@@ -2,12 +2,21 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v4.0 — "Mega" release · 60+ tools in 5 tabs
+**Version:** v4.1 — auto-update built in · 60+ tools in 5 tabs
 
 A full-featured PDF & image toolkit for **Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI.
 Merge, split, sign, redact, compress, convert, watermark — plus a full **Image Tools** suite and an
 **Automation** tab with recipes, watch folders, scheduled runs and a command-line companion
 (`PDFSuiteCLI.exe`). Portable or installed.
+
+## What's New in v4.1
+
+- **Modern app icon** — new gradient document icon on the desktop shortcut, taskbar,
+  title bar and the installer
+- **Built-in auto-updater** — the app silently checks GitHub for new versions at startup
+  (Help → Check for Updates for a manual check), shows the release notes, **downloads the
+  installer for you and runs it** — no manual downloading
+- **"Don't remind me about this version"** option in the update dialog
 
 ## What's New in v4.0
 
@@ -176,6 +185,8 @@ Output: `PDFSuitePro_Installer.exe`
 ├── features_pdf.py            # PDF engine (merge, split, sign, redact, compress, …)
 ├── features_image.py          # Image engine (compress, convert, resize, watermark, …)
 ├── automation.py              # Recipes, batch runner, watcher, scheduler, mail merge, SMTP
+├── app_icon.ico               # Application icon (desktop / taskbar / installer)
+├── make_icon.py               # Icon generator script
 ├── PDF Suite Pro.exe          # Pre-built portable executable (32-bit)
 ├── PDFSuiteCLI.exe            # Pre-built command-line executable
 ├── PDFSuitePro_Installer.exe  # Setup wizard (built with NSIS)

@@ -7,7 +7,7 @@
 
 ; Application info
 !define APP_NAME "PDF Suite Pro"
-!define APP_VERSION "4.0"
+!define APP_VERSION "4.1"
 !define APP_PUBLISHER "AYUSH GUPTA"
 !define APP_URL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 !define APP_EXE "PDF Suite Pro.exe"
@@ -15,6 +15,7 @@
 
 ; Output
 OutFile "PDFSuitePro_Installer.exe"
+Icon "app_icon.ico"
 InstallDir "$PROGRAMFILES\${APP_NAME}"
 InstallDirRegKey HKLM "Software\${APP_NAME}" "Install_Dir"
 
@@ -22,8 +23,8 @@ InstallDirRegKey HKLM "Software\${APP_NAME}" "Install_Dir"
 RequestExecutionLevel admin
 
 ; Modern UI
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "app_icon.ico"
+!define MUI_UNICON "app_icon.ico"
 !define MUI_WELCOMEFINISHPAGE_BITMAP "${NSISDIR}\Contrib\Graphics\Header\nsis3-metro.bmp"
 !define MUI_LICENSEPAGE_TEXT_TOP "Please read the license agreement."
 !define MUI_LICENSEPAGE_TEXT_BOTTOM "Click Next to continue."

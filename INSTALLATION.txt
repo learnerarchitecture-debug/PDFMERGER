@@ -3,8 +3,22 @@ PDF Suite Pro — Installation Guide
 
 App:     PDF Suite Pro
 Creator: AYUSH GUPTA
-Version: v4.0
+Version: v4.1
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
+
+
+Updating to a new version
+-------------------------
+PDF Suite Pro checks for new versions automatically:
+
+  - At startup it quietly checks GitHub for a newer release.
+  - If one exists, a dialog shows the release notes with a
+    "Download & Install" button — it downloads the installer and
+    runs it for you (the app closes while updating).
+  - Manual check: menu  Help → Check for Updates.
+
+Note: the update system uses GitHub Releases of this repository.
+Only install releases published there by the project author.
 
 
 What's in the box
