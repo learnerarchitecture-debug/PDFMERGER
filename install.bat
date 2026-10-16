@@ -4,7 +4,7 @@ color 0A
 
 echo.
 echo ========================================
-echo   PDF Suite Pro v3.0 - Installer
+echo   PDF Suite Pro v4.0 - Installer
 echo   Creator: AYUSH GUPTA
 echo   https://github.com/learnerarchitecture-debug/PDFMERGER
 echo ========================================
@@ -58,6 +58,7 @@ if not exist "%APPDIR%" mkdir "%APPDIR%"
 :: Copy files
 echo [INFO] Copying files...
 copy /y "%SRCEXE%" "%APPDIR%\" >nul
+if exist "dist\PDFSuiteCLI.exe" copy /y "dist\PDFSuiteCLI.exe" "%APPDIR%\" >nul
 copy /y "requirements.txt" "%APPDIR%\" >nul
 copy /y "INSTALLATION.txt" "%APPDIR%\" >nul
 copy /y "README.md" "%APPDIR%\" >nul
@@ -111,7 +112,7 @@ echo [INFO] Creating uninstaller...
 :: Register in Windows Apps & Features
 reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v DisplayName /t REG_SZ /d "PDF Suite Pro" /f >nul
 reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v UninstallString /t REG_SZ /d "\"%APPDIR%\uninstall.bat\"" /f >nul
-reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v DisplayVersion /t REG_SZ /d "3.0" /f >nul
+reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v DisplayVersion /t REG_SZ /d "4.0" /f >nul
 reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v Publisher /t REG_SZ /d "AYUSH GUPTA" /f >nul
 reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v URLInfoAbout /t REG_SZ /d "https://github.com/learnerarchitecture-debug/PDFMERGER" /f >nul
 reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\PDF Suite Pro" /v InstallLocation /t REG_SZ /d "%APPDIR%" /f >nul

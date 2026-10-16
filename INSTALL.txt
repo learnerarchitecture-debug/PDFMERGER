@@ -37,11 +37,12 @@ BUILD EXE
 pip install -r requirements.txt
 pip install pyinstaller
 pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
+pyinstaller --onefile --console  --name "PDFSuiteCLI" pdf_cli.py
 
-Output: dist/PDF Suite Pro.exe
+Output: dist/PDF Suite Pro.exe  and  dist/PDFSuiteCLI.exe
 
 For a Windows 7–compatible build use Python 3.8 (32-bit):
-  pip install PyMuPDF==1.23.26 Pillow==10.4.0 pyinstaller==5.13.2
+  pip install PyMuPDF==1.23.26 Pillow==10.4.0 pyinstaller==5.13.2 tkinterdnd2 qrcode
   pyinstaller --onefile --windowed --name "PDF Suite Pro" pdf_tool.py
 
 BUILD INSTALLER

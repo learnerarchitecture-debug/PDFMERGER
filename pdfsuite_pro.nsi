@@ -7,10 +7,11 @@
 
 ; Application info
 !define APP_NAME "PDF Suite Pro"
-!define APP_VERSION "3.0"
+!define APP_VERSION "4.0"
 !define APP_PUBLISHER "AYUSH GUPTA"
 !define APP_URL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 !define APP_EXE "PDF Suite Pro.exe"
+!define APP_CLI "PDFSuiteCLI.exe"
 
 ; Output
 OutFile "PDFSuitePro_Installer.exe"
@@ -93,6 +94,7 @@ Section "MainSection" SEC01
     
     ; Copy files
     File "dist\${APP_EXE}"
+    File "dist\${APP_CLI}"
     File "requirements.txt"
     File "INSTALLATION.txt"
     File "README.md"
@@ -131,6 +133,7 @@ SectionEnd
 ; Uninstall
 Section "Uninstall"
     Delete "$INSTDIR\${APP_EXE}"
+    Delete "$INSTDIR\${APP_CLI}"
     Delete "$INSTDIR\requirements.txt"
     Delete "$INSTDIR\INSTALLATION.txt"
     Delete "$INSTDIR\README.md"

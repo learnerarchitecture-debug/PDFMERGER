@@ -1,5 +1,5 @@
 #define AppName "PDF Suite Pro"
-#define AppVersion "3.0"
+#define AppVersion "4.0"
 #define AppPublisher "AYUSH GUPTA"
 #define AppURL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 #define SourceExe "dist\PDF Suite Pro.exe"
@@ -29,6 +29,7 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\PDFSuiteCLI.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"
 Source: "INSTALLATION.txt"; DestDir: "{app}"
 Source: "README.md"; DestDir: "{app}"
