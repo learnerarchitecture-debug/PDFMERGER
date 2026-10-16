@@ -17,6 +17,20 @@ PDF Suite Pro checks for new versions automatically:
     runs it for you (the app closes while updating).
   - Manual check: menu  Help → Check for Updates.
 
+IMPORTANT — private repository:
+This repository is private, so update checks need a GitHub access
+token on each computer that should receive updates:
+
+  1. On github.com: Settings → Developer settings → Personal
+     access tokens → Tokens (classic) → Generate new token,
+     tick the "repo" scope, generate and copy it.
+  2. In the app: menu  Help → Update settings…  and paste the
+     token. Press OK.
+
+The token is stored only in the app's settings file on that
+computer. If update checking stops working (e.g. the token was
+revoked or expired), just paste a fresh token the same way.
+
 Note: the update system uses GitHub Releases of this repository.
 Only install releases published there by the project author.
 

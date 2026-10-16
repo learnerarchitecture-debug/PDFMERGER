@@ -89,13 +89,48 @@ def version_tuple(v):
     return tuple(parts[:3])
 
 
-def fetch_latest_release():
-    """Return the latest GitHub release dict (raises on network/API errors)."""
-    req = urllib.request.Request(UPDATE_API, headers={
-        "User-Agent": "PDFSuitePro-%s" % APP_VERSION,
-        "Accept": "application/vnd.github+json"})
+def fetch_latest_release(token=None):
+    """Return the latest GitHub release dict (raises on network/API errors).
+
+    A token is required when the repository is private.
+    """
+    headers = {"User-Agent": "PDFSuitePro-%s" % APP_VERSION,
+               "Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(UPDATE_API, headers=headers)
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read().decode("utf-8", "replace"))
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def open_update_stream(url, token=None):
+    """Open a release asset URL for reading.
+
+    Handles GitHub's redirect to storage for asset downloads: the request
+    helper strips nothing - we follow the redirect manually WITHOUT the
+    Authorization header (signed storage URLs reject it).
+    """
+    base = {"User-Agent": "PDFSuitePro-%s" % APP_VERSION}
+    headers = dict(base)
+    if token:
+        headers["Authorization"] = "Bearer " + token
+        headers["Accept"] = "application/octet-stream"
+    req = urllib.request.Request(url, headers=headers)
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        return opener.open(req, timeout=30)
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            loc = e.headers.get("Location") or ""
+            if loc:
+                return urllib.request.urlopen(
+                    urllib.request.Request(loc, headers=base), timeout=30)
+        raise
 
 # ─── Modern dark theme (2026 design) ───
 THEME = {
@@ -548,6 +583,7 @@ class PDFSuite:
         hm = tk.Menu(mb, tearoff=0, bg=THEME["frame"], fg=THEME["fg"])
         mb.add_cascade(label="Help", menu=hm)
         hm.add_command(label="Check for Updates", command=self.check_updates)
+        hm.add_command(label="Update settings…", command=self.update_settings)
         hm.add_separator()
         hm.add_command(label="Rate & Review", command=self.open_rating)
         hm.add_separator()
@@ -699,12 +735,16 @@ class PDFSuite:
     # ── update checker ──
     def check_updates(self, silent=False):
         """Check GitHub for a newer release and offer to download + install."""
+        token = (self.settings or {}).get("github_token") or ""
+
         def worker():
-            res = {"ok": True, "rel": None, "err": None}
+            res = {"ok": True, "rel": None, "err": None, "need_token": False}
             try:
-                res["rel"] = fetch_latest_release()
+                res["rel"] = fetch_latest_release(token)
             except urllib.error.HTTPError as e:
-                if e.code != 404:
+                if e.code == 404:
+                    res["need_token"] = not token
+                else:
                     res["ok"] = False
                     res["err"] = "GitHub error %s" % e.code
             except Exception as e:
@@ -726,8 +766,15 @@ class PDFSuite:
         data = res["rel"]
         if not data:
             if not silent:
-                messagebox.showinfo("Check for updates",
-                    "No releases have been published yet on GitHub.")
+                if res.get("need_token"):
+                    messagebox.showinfo("Check for updates",
+                        "No releases were found. This repository is private, so "
+                        "the app needs a GitHub access token to check for "
+                        "updates.\n\nAdd one via the menu:\n"
+                        "Help → Update settings…")
+                else:
+                    messagebox.showinfo("Check for updates",
+                        "No releases have been published yet on GitHub.")
             return
         latest = (data.get("tag_name") or "").lstrip("vV")
         if not latest or version_tuple(latest) <= version_tuple(APP_VERSION):
@@ -747,6 +794,24 @@ class PDFSuite:
                     pass
             return
         self._update_dlg = UpdateDialog(self.root, self, data, latest)
+
+    def update_settings(self):
+        """Configure the GitHub token (private repo) and startup checks."""
+        s = self.settings or {}
+        dlg = SimpleFormDialog(self.root, "Update settings",
+            [("token", "GitHub access token", "text", s.get("github_token", "")),
+             ("auto", "Check for updates at startup", "check",
+              bool(s.get("auto_update_check", True)))],
+            intro="The repository is private, so update checks need a GitHub "
+                  "token with read access (create one at github.com → Settings → "
+                  "Developer settings → Personal access tokens). It is stored "
+                  "only on this computer.")
+        if dlg.result is None:
+            return
+        self.settings["github_token"] = str(dlg.result.get("token", "")).strip()
+        self.settings["auto_update_check"] = bool(dlg.result.get("auto"))
+        save_settings(self.settings)
+        messagebox.showinfo("Update settings", "Saved.")
 
 
 # ═══════════════════════ MERGE UI ═══════════════════════
@@ -4456,7 +4521,8 @@ class UpdateDialog(ctk.CTkToplevel):
         if not self.asset:
             self.open_page()
             return
-        url = self.asset.get("browser_download_url")
+        url = self.asset.get("url") or self.asset.get("browser_download_url")
+        token = (self.app.settings or {}).get("github_token") or ""
         name = self.asset.get("name") or "PDFSuitePro_Installer.exe"
         total = int(self.asset.get("size") or 0)
         dest = os.path.join(tempfile.gettempdir(), name)
@@ -4467,10 +4533,8 @@ class UpdateDialog(ctk.CTkToplevel):
 
         def worker():
             try:
-                req = urllib.request.Request(url, headers={
-                    "User-Agent": "PDFSuitePro-%s" % APP_VERSION})
                 got = 0
-                with urllib.request.urlopen(req, timeout=30) as r, \
+                with open_update_stream(url, token) as r, \
                         open(dest, "wb") as f:
                     while True:
                         chunk = r.read(65536)

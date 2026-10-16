@@ -17,6 +17,8 @@ Merge, split, sign, redact, compress, convert, watermark — plus a full **Image
   (Help → Check for Updates for a manual check), shows the release notes, **downloads the
   installer for you and runs it** — no manual downloading
 - **"Don't remind me about this version"** option in the update dialog
+- **Private-repo support** — update checks accept a GitHub access token
+  (**Help → Update settings…**), stored only on this computer
 
 ## What's New in v4.0
 
@@ -46,6 +48,11 @@ Merge, split, sign, redact, compress, convert, watermark — plus a full **Image
 
 The wizard installs to `C:\Program Files\PDF Suite Pro`, creates desktop and Start Menu shortcuts,
 registers an uninstaller in **Apps & Features**, and can launch the app when finished.
+
+**Updating:** the app checks GitHub for new versions automatically (or use
+**Help → Check for Updates**) and can download and run the installer for you.
+The repository is private, so first add a GitHub access token via
+**Help → Update settings…** (see "Publishing an update" below).
 
 ## The Five Tabs
 
@@ -157,8 +164,8 @@ python pdf_tool.py                 # run from source
 Build the executables (PyInstaller):
 
 ```bash
-pyinstaller --onefile --windowed --name "PDF Suite Pro" pdf_tool.py
-pyinstaller --onefile --console  --name "PDFSuiteCLI" pdf_cli.py
+pyinstaller --noconfirm --clean "PDF Suite Pro.spec"
+pyinstaller --onefile --console --noconfirm --name "PDFSuiteCLI" --icon app_icon.ico pdf_cli.py
 ```
 
 Output: `dist/PDF Suite Pro.exe` and `dist/PDFSuiteCLI.exe`
@@ -176,6 +183,20 @@ makensis pdfsuite_pro.nsi
 ```
 
 Output: `PDFSuitePro_Installer.exe`
+
+### Publishing an update (this is what the auto-updater sees)
+
+1. Bump `APP_VERSION` in `pdf_tool.py` (e.g. `"4.2"`), commit and push.
+2. Create and push a tag: `git tag v4.2` then `git push origin v4.2`.
+3. GitHub Actions (`.github/workflows/build-release.yml`) builds the app, the CLI and the
+   installer and attaches all three to a new **Release** for that tag.
+4. Installed copies of the app find the release on their next startup check and offer to
+   download and install it (or check manually via **Help → Check for Updates**).
+
+Because this repository is private, machines that should auto-update need a GitHub token
+with `repo` scope: **Help → Update settings…** in the app (create the token at github.com →
+Settings → Developer settings → Personal access tokens). The token is stored only in the
+app's settings file on that computer.
 
 ## Project Structure
 
