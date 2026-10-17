@@ -2,13 +2,25 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v5.0 — 100+ tools in 6 tabs · auto-update built in
+**Version:** v5.1 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
 
 PageDeck (formerly *PDF Suite Pro*) is a full-featured PDF & image toolkit for
 **Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI. Merge, edit, sign, redact,
 compress, convert, clean up scans — plus a full **Image editor suite** and an
 **Automation** tab with recipes, watch folders, scheduled runs and a command-line
 companion (`PageDeckCLI.exe`). Portable or installed.
+
+## What's New in v5.1
+
+- **Automatic updates** — when a new version is published, PageDeck now
+  **downloads the installer by itself** and shows the release notes with a
+  progress bar. One click (*Restart & Install*) applies it. Toggle under
+  **Help → Update settings…**
+- **No token needed any more** — the repository is now **public**, so update
+  checks and downloads work out of the box on every PC. The token field stays
+  only for people running a private fork.
+- Fixed the release download for public repositories (it previously expected a
+  token and would have saved the wrong file).
 
 ## What's New in v5.0
 
@@ -61,10 +73,12 @@ The wizard installs to `C:\Program Files\PageDeck`, creates desktop and Start Me
 shortcuts, registers an uninstaller in **Apps & Features**, and can launch the app
 when finished.
 
-**Updating:** PageDeck checks GitHub for new versions automatically (or use
-**Help → Check for Updates**, or the Home tab) and can download and run the
-installer for you. The repository is private, so first add a GitHub access token via
-**Help → Update settings…** (see "Publishing an update" below).
+**Updating:** PageDeck checks GitHub for new versions automatically at startup
+(the repository is public, so no configuration or token is needed). When a new
+version exists, the app downloads the installer for you and asks one question —
+*Restart & Install* — then it closes and the setup updates it. Manual check:
+**Help → Check for Updates** or the button on the Home tab. Downloads can be
+turned off under **Help → Update settings…**.
 
 ## The Six Tabs
 
@@ -258,10 +272,10 @@ Output: `PageDeck_Installer.exe`
 4. Installed copies of the app find the release on their next startup check and offer
    to download and install it (or check manually via **Help → Check for Updates**).
 
-Because this repository is private, machines that should auto-update need a GitHub
-token with `repo` scope: **Help → Update settings…** in the app (create the token at
-github.com → Settings → Developer settings → Personal access tokens). The token is
-stored only in the app's settings file on that computer.
+The repository is public, so users need no token. If you ever make a fork
+private, users can add a GitHub access token under **Help → Update settings…**
+(create one at github.com → Settings → Developer settings → Personal access
+tokens, `repo` scope). It is stored only on that computer.
 
 ## Project Structure
 

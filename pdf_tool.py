@@ -59,7 +59,7 @@ def check_windows_version():
 check_windows_version()
 
 APP_NAME = "PageDeck"
-APP_VERSION = "5.0"
+APP_VERSION = "5.1"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
 OLD_SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / "PDF Suite Pro"
 
@@ -134,12 +134,16 @@ def open_update_stream(url, token=None):
     Handles GitHub's redirect to storage for asset downloads: the request
     helper strips nothing - we follow the redirect manually WITHOUT the
     Authorization header (signed storage URLs reject it).
+
+    Public repositories need no token: always request the binary
+    (Accept: application/octet-stream), otherwise the GitHub API would
+    return the asset's JSON metadata instead of the file itself.
     """
     base = {"User-Agent": "PageDeck-%s" % APP_VERSION}
     headers = dict(base)
+    headers["Accept"] = "application/octet-stream"
     if token:
         headers["Authorization"] = "Bearer " + token
-        headers["Accept"] = "application/octet-stream"
     req = urllib.request.Request(url, headers=headers)
     opener = urllib.request.build_opener(_NoRedirect)
     try:
@@ -819,10 +823,9 @@ class PageDeck:
             if not silent:
                 if res.get("need_token"):
                     messagebox.showinfo("Check for updates",
-                        "No releases were found. This repository is private, so "
-                        "the app needs a GitHub access token to check for "
-                        "updates.\n\nAdd one via the menu:\n"
-                        "Help → Update settings…")
+                        "No releases were found.\n\nIf you are running a "
+                        "private fork of PageDeck, add a GitHub access token "
+                        "via:\nHelp → Update settings…")
                 else:
                     messagebox.showinfo("Check for updates",
                         "No releases have been published yet on GitHub.")
@@ -844,23 +847,28 @@ class PageDeck:
                 except Exception:
                     pass
             return
-        self._update_dlg = UpdateDialog(self.root, self, data, latest)
+        auto = bool((self.settings or {}).get("auto_download", True))
+        self._update_dlg = UpdateDialog(self.root, self, data, latest, auto=auto)
 
     def update_settings(self):
-        """Configure the GitHub token (private repo) and startup checks."""
+        """Configure update checks and the optional token (private forks)."""
         s = self.settings or {}
         dlg = SimpleFormDialog(self.root, "Update settings",
-            [("token", "GitHub access token", "text", s.get("github_token", "")),
-             ("auto", "Check for updates at startup", "check",
-              bool(s.get("auto_update_check", True)))],
-            intro="The repository is private, so update checks need a GitHub "
-                  "token with read access (create one at github.com → Settings → "
-                  "Developer settings → Personal access tokens). It is stored "
-                  "only on this computer.")
+            [("auto", "Check for updates at startup", "check",
+              bool(s.get("auto_update_check", True))),
+             ("download", "Download new versions automatically", "check",
+              bool(s.get("auto_download", True))),
+             ("token", "GitHub access token (only needed for private forks)", "text",
+              s.get("github_token", ""))],
+            intro="PageDeck is distributed from a public GitHub repository, so "
+                  "update checks and downloads work without a token. A token is "
+                  "only needed if you host a private fork. It is stored only on "
+                  "this computer.")
         if dlg.result is None:
             return
         self.settings["github_token"] = str(dlg.result.get("token", "")).strip()
         self.settings["auto_update_check"] = bool(dlg.result.get("auto"))
+        self.settings["auto_download"] = bool(dlg.result.get("download"))
         save_settings(self.settings)
         messagebox.showinfo("Update settings", "Saved.")
 
@@ -5364,7 +5372,7 @@ class AutomationUI:
 class UpdateDialog(ctk.CTkToplevel):
     """Shows a new release, downloads the installer from GitHub and runs it."""
 
-    def __init__(self, parent, app, release, latest):
+    def __init__(self, parent, app, release, latest, auto=False):
         super().__init__(parent)
         self.app = app
         self.release = release or {}
@@ -5435,6 +5443,10 @@ class UpdateDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
+        if auto and self.asset:
+            self.status.configure(text="Downloading automatically…")
+            self.after(700, self.start_update)
+
     def _closed(self):
         try:
             self.app._update_dlg = None
@@ -5457,8 +5469,12 @@ class UpdateDialog(ctk.CTkToplevel):
         if not self.asset:
             self.open_page()
             return
-        url = self.asset.get("url") or self.asset.get("browser_download_url")
         token = (self.app.settings or {}).get("github_token") or ""
+        if token:
+            url = self.asset.get("url") or self.asset.get("browser_download_url")
+        else:
+            # public repo: download straight from the release assets page
+            url = self.asset.get("browser_download_url") or self.asset.get("url")
         name = self.asset.get("name") or "PageDeck_Installer.exe"
         total = int(self.asset.get("size") or 0)
         dest = os.path.join(tempfile.gettempdir(), name)

@@ -3,7 +3,7 @@ PageDeck — Installation Guide
 
 App:     PageDeck (formerly "PDF Suite Pro")
 Creator: AYUSH GUPTA
-Version: v5.0
+Version: v5.1
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
 
@@ -20,28 +20,19 @@ Already using a portable copy? Simply replace the old exe with PageDeck.exe.
 
 Updating to a new version
 -------------------------
-PageDeck checks for new versions automatically:
+PageDeck updates itself:
 
   - At startup it quietly checks GitHub for a newer release.
-  - If one exists, a dialog shows the release notes with a
-    "Download & Install" button — it downloads the installer and
-    runs it for you (the app closes while updating).
+    The repository is public — no token or configuration needed.
+  - If one exists, the app downloads the installer automatically
+    (release notes + progress bar are shown) and asks one question:
+    "Restart & Install". PageDeck closes while the setup updates it.
   - Manual check: menu  Help → Check for Updates,
     or the "Check for updates" button on the Home tab.
-
-IMPORTANT — private repository:
-This repository is private, so update checks need a GitHub access
-token on each computer that should receive updates:
-
-  1. On github.com: Settings → Developer settings → Personal
-     access tokens → Tokens (classic) → Generate new token,
-     tick the "repo" scope, generate and copy it.
-  2. In the app: menu  Help → Update settings…  and paste the
-     token. Press OK.
-
-The token is stored only in the app's settings file on that
-computer. If update checking stops working (e.g. the token was
-revoked or expired), just paste a fresh token the same way.
+  - Preferences: menu  Help → Update settings…
+      * Check for updates at startup          (on by default)
+      * Download new versions automatically   (on by default)
+      * GitHub access token — only needed if you run a private fork
 
 Note: the update system uses GitHub Releases of this repository.
 Only install releases published there by the project author.
