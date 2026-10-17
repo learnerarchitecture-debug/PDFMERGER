@@ -59,7 +59,7 @@ def check_windows_version():
 check_windows_version()
 
 APP_NAME = "PageDeck"
-APP_VERSION = "5.1"
+APP_VERSION = "5.1.1"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
 OLD_SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / "PDF Suite Pro"
 

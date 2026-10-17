@@ -7,7 +7,7 @@
 
 ; Application info
 !define APP_NAME "PageDeck"
-!define APP_VERSION "5.0"
+!define APP_VERSION "5.1.1"
 !define APP_PUBLISHER "AYUSH GUPTA"
 !define APP_URL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 !define APP_EXE "PageDeck.exe"
@@ -19,6 +19,12 @@ OutFile "PageDeck_Installer.exe"
 Icon "app_icon.ico"
 InstallDir "$PROGRAMFILES\${APP_NAME}"
 InstallDirRegKey HKLM "Software\${APP_NAME}" "Install_Dir"
+
+; Installed app identity. MUST be set before MUI_LANGUAGE so the
+; "Welcome to <name> Setup" pages and window captions show PageDeck
+; instead of the NSIS placeholder ("NAME").
+Name "${APP_NAME}"
+Caption "${APP_NAME} Setup"
 
 ; Request admin privileges
 RequestExecutionLevel admin

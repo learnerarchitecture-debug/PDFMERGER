@@ -2,13 +2,20 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v5.1 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
+**Version:** v5.1.1 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
 
 PageDeck (formerly *PDF Suite Pro*) is a full-featured PDF & image toolkit for
 **Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI. Merge, edit, sign, redact,
 compress, convert, clean up scans — plus a full **Image editor suite** and an
 **Automation** tab with recipes, watch folders, scheduled runs and a command-line
 companion (`PageDeckCLI.exe`). Portable or installed.
+
+## What's New in v5.1.1
+
+- Fixed the installer text — the welcome page and the window title bar used to
+  show a placeholder ("Welcome to NAME Setup"); they now say *PageDeck*
+- The installer now reports the right version to Windows (Add/Remove Programs
+  previously listed 5.0)
 
 ## What's New in v5.1
 
