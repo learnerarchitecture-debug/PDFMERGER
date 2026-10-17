@@ -1,11 +1,12 @@
-"""PDF Suite Pro - command line companion (built as PDFSuiteCLI.exe).
+"""PageDeck - command line companion (built as PageDeckCLI.exe).
 
 Examples:
-  PDFSuiteCLI.exe merge a.pdf b.pdf -o merged.pdf
-  PDFSuiteCLI.exe compress big.pdf --target 5
-  PDFSuiteCLI.exe recipe -r myrecipe.json -d "C:\\Scans" -o "C:\\Out"
-  PDFSuiteCLI.exe watch -d "C:\\Scans" -r myrecipe.json -o "C:\\Out"
-  PDFSuiteCLI.exe schedule --name NightRun --recipe myrecipe.json -d "C:\\Scans" -o "C:\\Out" --time 23:00
+  PageDeckCLI.exe merge a.pdf b.pdf -o merged.pdf
+  PageDeckCLI.exe compress big.pdf --target 5
+  PageDeckCLI.exe ocr scan.pdf --lang eng
+  PageDeckCLI.exe recipe -r myrecipe.json -d "C:\\Scans" -o "C:\\Out"
+  PageDeckCLI.exe watch -d "C:\\Scans" -r myrecipe.json -o "C:\\Out"
+  PageDeckCLI.exe schedule --name NightRun --recipe myrecipe.json -d "C:\\Scans" -o "C:\\Out" --time 23:00
 """
 import argparse
 import os
@@ -372,10 +373,176 @@ def cmd_ops(a):
     return 0
 
 
+# ───────────────────────── v5.0 commands ─────────────────────────
+def _img_each(inputs, d, fn):
+    outs = []
+    total = len(inputs)
+    for i, p in enumerate(inputs):
+        try:
+            outs.append((p, fn(p), None))
+        except Exception as e:
+            outs.append((p, None, str(e)))
+        _progress(i + 1, total)
+    return outs
+
+
+def _one(res):
+    _src, out, err = res[0]
+    if err:
+        raise RuntimeError(err)
+    return out
+
+
+def cmd_ocr(a):
+    out = a.out or _default_out(a.input, "_ocr", ".txt" if a.mode == "txt" else ".pdf")
+    fp.ocr_pdf(a.input, out, lang=a.lang, dpi=a.dpi, mode=a.mode, progress=_progress)
+    _p("OCR done -> %s" % out)
+    return 0
+
+
+def cmd_office(a):
+    d = _outdir(a, a.inputs[0])
+    outs = fp.office_to_pdf(a.inputs, d, progress=_progress)
+    for o in outs:
+        _p("OK  %s" % o)
+    _p("Converted %d file(s) -> %s" % (len(outs), d))
+    return 0
+
+
+def cmd_replace(a):
+    out = a.out or _default_out(a.input, "_replaced")
+    o, n = fp.search_replace(a.input, out, a.find, a.replace,
+                             match_case=a.match_case, whole_word=a.whole_word,
+                             progress=_progress)
+    _p("Replaced %d occurrence(s) -> %s" % (n, o))
+    return 0
+
+
+_HL_COLORS = {"yellow": (1.0, 0.92, 0.2), "green": (0.45, 0.95, 0.45),
+              "pink": (1.0, 0.6, 0.8), "blue": (0.5, 0.75, 1.0)}
+
+
+def cmd_highlight(a):
+    out = a.out or _default_out(a.input, "_highlight")
+    o, n = fp.highlight_text(a.input, out, a.phrase,
+                             color=_HL_COLORS.get(a.color, _HL_COLORS["yellow"]),
+                             progress=_progress)
+    _p("Highlighted %d occurrence(s) -> %s" % (n, o))
+    return 0
+
+
+def cmd_typewriter(a):
+    out = a.out or _default_out(a.input, "_text")
+    colors = {"black": (0, 0, 0), "red": (0.85, 0.1, 0.1),
+              "blue": (0.1, 0.25, 0.85), "green": (0.05, 0.5, 0.2)}
+    o = fp.typewriter_text(a.input, out, a.text, max(0, a.page - 1), a.x, a.y,
+                           fontsize=a.size, color=colors.get(a.color, (0, 0, 0)))
+    _p("Text added -> %s" % o)
+    return 0
+
+
+def cmd_attach(a):
+    out = a.out or _default_out(a.input, "_attached")
+    o = fp.add_attachment(a.input, out, a.file)
+    _p("Attached %s -> %s" % (os.path.basename(a.file), o))
+    return 0
+
+
+def cmd_extract_attach(a):
+    d = _outdir(a, a.input)
+    if not fp.list_attachments(a.input):
+        _p("No embedded files.")
+        return 0
+    written = fp.extract_attachments(a.input, d)
+    for w in written:
+        _p("OK  %s" % w)
+    _p("Extracted %d file(s) -> %s" % (len(written), d))
+    return 0
+
+
+def cmd_split_keyword(a):
+    outs = fp.split_by_keyword(a.input, _outdir(a, a.input), a.keyword,
+                               progress=_progress)
+    for o in outs:
+        _p("OK  %s" % o)
+    _p("Split into %d file(s)" % len(outs))
+    return 0
+
+
+def cmd_split_blank(a):
+    try:
+        outs = fp.split_at_blank_pages(a.input, _outdir(a, a.input), progress=_progress)
+    except ValueError as e:
+        _p("Nothing to split: %s" % e)
+        return 0
+    for o in outs:
+        _p("OK  %s" % o)
+    _p("Split into %d file(s)" % len(outs))
+    return 0
+
+
+def cmd_img_scan(a):
+    d = _outdir(a, a.inputs[0])
+    return _img_batch(a, lambda: _img_each(a.inputs, d, lambda p: fi.scan_cleanup(
+        p, fi._out_path(p, d, "_scan", fi.ext_for(fi._ext_format(p))),
+        whiten=not a.no_whiten, despeckle=not a.no_despeckle)))
+
+
+def cmd_img_nobg(a):
+    d = _outdir(a, a.inputs[0])
+    return _img_batch(a, lambda: _img_each(a.inputs, d, lambda p: fi.remove_background(
+        p, fi._out_path(p, d, "_nobg", ".png"), tolerance=a.tolerance)))
+
+
+def cmd_img_upscale(a):
+    d = _outdir(a, a.inputs[0])
+    return _img_batch(a, lambda: _img_each(a.inputs, d, lambda p: _one(
+        fi.upscale([p], d, factor=a.factor))))
+
+
+def cmd_img_filter(a):
+    d = _outdir(a, a.inputs[0])
+    return _img_batch(a, lambda: fi.apply_filter(a.inputs, d, preset=a.preset,
+                                                 progress=_progress))
+
+
+def cmd_img_social(a):
+    d = _outdir(a, a.inputs[0])
+    size, tag = (1080, 1080), "social"
+    for name, w, h in fi.SOCIAL_PRESETS:
+        if name.lower().startswith(a.preset.lower()):
+            size, tag = (w, h), "%dx%d" % (w, h)
+            break
+    return _img_batch(a, lambda: fi.social_export(a.inputs, d, size=size,
+                                                  mode=a.mode, label=tag,
+                                                  progress=_progress))
+
+
+def cmd_img_collage(a):
+    out = a.out or "collage.jpg"
+    r = fi.collage(a.inputs, out, cols=a.cols, rows=a.rows, cell=a.cell,
+                   spacing=a.spacing, bg=a.bg, radius=a.radius, progress=_progress)
+    _p("Collage -> %s" % r)
+    return 0
+
+
+def cmd_img_crop(a):
+    d = _outdir(a, a.inputs[0])
+    return _img_batch(a, lambda: fi.batch_crop(a.inputs, d, left=a.left, top=a.top,
+                                               right=a.right, bottom=a.bottom,
+                                               progress=_progress))
+
+
+def cmd_img_nogps(a):
+    d = _outdir(a, a.inputs[0])
+    return _img_batch(a, lambda: _img_each(a.inputs, d, lambda p: fi.exif_remove_gps(
+        p, fi._out_path(p, d, "_nogps", fi.ext_for(fi._ext_format(p))))))
+
+
 # ───────────────────────── parser ─────────────────────────
 def build_parser():
-    ap = argparse.ArgumentParser(prog="PDFSuiteCLI",
-                                 description="PDF Suite Pro command line tool")
+    ap = argparse.ArgumentParser(prog="PageDeckCLI",
+                                 description="PageDeck command line tool")
     sub = ap.add_subparsers(dest="cmd")
     sub.required = True
 
@@ -535,6 +702,70 @@ def build_parser():
     p.add_argument("--size", type=float, default=28, help="size in mm")
     p.set_defaults(fn=cmd_qr)
 
+    p = sub.add_parser("ocr", help="make a scan searchable (needs Tesseract)")
+    out_p(p)
+    out_o(p)
+    p.add_argument("--lang", default="eng")
+    p.add_argument("--dpi", type=int, default=200)
+    p.add_argument("--mode", default="pdf", choices=["pdf", "txt"])
+    p.set_defaults(fn=cmd_ocr)
+
+    p = sub.add_parser("office2pdf", help="Word/Excel/PPT to PDF (needs LibreOffice)")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.set_defaults(fn=cmd_office)
+
+    p = sub.add_parser("replace", help="find & replace text")
+    out_p(p)
+    out_o(p)
+    p.add_argument("--find", required=True)
+    p.add_argument("--replace", default="")
+    p.add_argument("--match-case", action="store_true")
+    p.add_argument("--whole-word", action="store_true")
+    p.set_defaults(fn=cmd_replace)
+
+    p = sub.add_parser("highlight", help="highlight a phrase")
+    out_p(p)
+    out_o(p)
+    p.add_argument("--phrase", required=True)
+    p.add_argument("--color", default="yellow",
+                   choices=["yellow", "green", "pink", "blue"])
+    p.set_defaults(fn=cmd_highlight)
+
+    p = sub.add_parser("typewriter", help="type text on a page")
+    out_p(p)
+    out_o(p)
+    p.add_argument("--text", required=True)
+    p.add_argument("--page", type=int, default=1)
+    p.add_argument("--x", type=float, default=0.1)
+    p.add_argument("--y", type=float, default=0.1)
+    p.add_argument("--size", type=int, default=14)
+    p.add_argument("--color", default="black",
+                   choices=["black", "red", "blue", "green"])
+    p.set_defaults(fn=cmd_typewriter)
+
+    p = sub.add_parser("attach", help="attach a file inside a PDF")
+    out_p(p)
+    out_o(p)
+    p.add_argument("--file", required=True)
+    p.set_defaults(fn=cmd_attach)
+
+    p = sub.add_parser("extract-attach", help="extract files embedded in a PDF")
+    out_p(p)
+    out_o(p, ".")
+    p.set_defaults(fn=cmd_extract_attach)
+
+    p = sub.add_parser("split-keyword", help="new file starts at each keyword hit")
+    out_p(p)
+    out_o(p, ".")
+    p.add_argument("--keyword", required=True)
+    p.set_defaults(fn=cmd_split_keyword)
+
+    p = sub.add_parser("split-blank", help="split at blank separator pages")
+    out_p(p)
+    out_o(p, ".")
+    p.set_defaults(fn=cmd_split_blank)
+
     p = sub.add_parser("img-compress", help="compress images to JPEG")
     p.add_argument("inputs", nargs="+")
     out_o(p)
@@ -564,7 +795,7 @@ def build_parser():
     p = sub.add_parser("img-watermark", help="watermark images")
     p.add_argument("inputs", nargs="+")
     out_o(p)
-    p.add_argument("--text", default="PDF Suite Pro")
+    p.add_argument("--text", default="PageDeck")
     p.add_argument("--position", default="bottom-right")
     p.add_argument("--opacity", type=float, default=0.55)
     p.set_defaults(fn=cmd_img_watermark)
@@ -606,6 +837,63 @@ def build_parser():
     p.add_argument("--pad", type=int, default=3)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_img_rename)
+
+    p = sub.add_parser("img-scan", help="scan cleanup (whiten / despeckle)")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.add_argument("--no-whiten", action="store_true")
+    p.add_argument("--no-despeckle", action="store_true")
+    p.set_defaults(fn=cmd_img_scan)
+
+    p = sub.add_parser("img-nobg", help="remove solid background (transparent PNG)")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.add_argument("--tolerance", type=int, default=40)
+    p.set_defaults(fn=cmd_img_nobg)
+
+    p = sub.add_parser("img-upscale", help="upscale images (Lanczos + sharpen)")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.add_argument("--factor", type=float, default=2)
+    p.set_defaults(fn=cmd_img_upscale)
+
+    p = sub.add_parser("img-filter", help="apply a filter / look")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.add_argument("--preset", default="B&W", choices=list(fi.FILTERS))
+    p.set_defaults(fn=cmd_img_filter)
+
+    p = sub.add_parser("img-social", help="export at social-media sizes")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.add_argument("--preset", default="Instagram post", help="size name prefix")
+    p.add_argument("--mode", default="fill", choices=["fill", "fit"])
+    p.set_defaults(fn=cmd_img_social)
+
+    p = sub.add_parser("img-collage", help="build a grid collage")
+    p.add_argument("inputs", nargs="+")
+    out_o(p, "collage.jpg")
+    p.add_argument("--cols", type=int, default=0)
+    p.add_argument("--rows", type=int, default=0)
+    p.add_argument("--cell", type=int, default=600)
+    p.add_argument("--spacing", type=int, default=12)
+    p.add_argument("--radius", type=int, default=0)
+    p.add_argument("--bg", default="#ffffff")
+    p.set_defaults(fn=cmd_img_collage)
+
+    p = sub.add_parser("img-crop", help="crop the same percent off each side")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.add_argument("--left", type=float, default=0)
+    p.add_argument("--top", type=float, default=0)
+    p.add_argument("--right", type=float, default=0)
+    p.add_argument("--bottom", type=float, default=0)
+    p.set_defaults(fn=cmd_img_crop)
+
+    p = sub.add_parser("img-nogps", help="strip GPS location but keep EXIF")
+    p.add_argument("inputs", nargs="+")
+    out_o(p)
+    p.set_defaults(fn=cmd_img_nogps)
 
     p = sub.add_parser("recipe", help="run a recipe on files/folder")
     p.add_argument("-r", "--recipe", required=True)

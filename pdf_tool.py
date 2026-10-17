@@ -58,9 +58,29 @@ def check_windows_version():
 
 check_windows_version()
 
-APP_NAME = "PDF Suite Pro"
-APP_VERSION = "4.1"
+APP_NAME = "PageDeck"
+APP_VERSION = "5.0"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
+OLD_SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / "PDF Suite Pro"
+
+
+def _migrate_old_settings():
+    """Copy v4.x (PDF Suite Pro) settings over the first time PageDeck runs."""
+    try:
+        if SETTINGS_DIR == OLD_SETTINGS_DIR or not OLD_SETTINGS_DIR.is_dir():
+            return
+        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        import shutil as _shutil
+        for name in ("settings.json", "signature.png", "feedback.json"):
+            src = OLD_SETTINGS_DIR / name
+            dst = SETTINGS_DIR / name
+            if src.is_file() and not dst.exists():
+                _shutil.copy2(str(src), str(dst))
+    except Exception:
+        pass
+
+
+_migrate_old_settings()
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_FILE = SETTINGS_DIR / "settings.json"
 THUMB_W, THUMB_H = 130, 170
@@ -94,7 +114,7 @@ def fetch_latest_release(token=None):
 
     A token is required when the repository is private.
     """
-    headers = {"User-Agent": "PDFSuitePro-%s" % APP_VERSION,
+    headers = {"User-Agent": "PageDeck-%s" % APP_VERSION,
                "Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = "Bearer " + token
@@ -115,7 +135,7 @@ def open_update_stream(url, token=None):
     helper strips nothing - we follow the redirect manually WITHOUT the
     Authorization header (signed storage URLs reject it).
     """
-    base = {"User-Agent": "PDFSuitePro-%s" % APP_VERSION}
+    base = {"User-Agent": "PageDeck-%s" % APP_VERSION}
     headers = dict(base)
     if token:
         headers["Authorization"] = "Bearer " + token
@@ -266,7 +286,7 @@ class RatingDialog:
         card = modern_card(self.top)
         card.pack(fill="both", expand=True, padx=16, pady=16)
 
-        ctk.CTkLabel(card, text="Rate PDF Suite Pro", font=("Segoe UI", 16, "bold"),
+        ctk.CTkLabel(card, text="Rate " + APP_NAME, font=("Segoe UI", 16, "bold"),
                      text_color=THEME["fg"]).pack(pady=(18, 2))
         ctk.CTkLabel(card, text="Your feedback helps improve the app", font=FONT_SM,
                      text_color=THEME["muted"]).pack()
@@ -463,7 +483,7 @@ class ReorderListbox(tk.Listbox):
 
 
 # ═══════════════════════ MAIN APP ═══════════════════════
-class PDFSuite:
+class PageDeck:
     def __init__(self, root):
         self.root = root
         self.root.title(APP_NAME + " — v" + APP_VERSION)
@@ -493,15 +513,34 @@ class PDFSuite:
             text_color=THEME["fg"])
         self.tabview.pack(fill="both", expand=True, padx=16, pady=(0, 16))
 
-        self.tab_merge = self.tabview.add("Merge")
-        self.tab_split = self.tabview.add("Split & Edit")
-        self.tab_tools = self.tabview.add("PDF Tools")
-        self.tab_img = self.tabview.add("Image Tools")
+        # ── six categories ──
+        self.tab_home = self.tabview.add("Home")
+        self.tab_org = self.tabview.add("Organize")
+        self.tab_edit = self.tabview.add("Edit PDF")
+        self.tab_conv = self.tabview.add("Convert & Secure")
+        self.tab_img = self.tabview.add("Images")
         self.tab_auto = self.tabview.add("Automation")
 
-        self.merge_ui = MergeUI(self.tab_merge, self)
-        self.split_ui = SplitUI(self.tab_split, self)
-        self.tools_ui = ToolsUI(self.tab_tools, self)
+        self.home_ui = HomeUI(self.tab_home, self)
+
+        self.org_sub = ctk.CTkTabview(self.tab_org, fg_color="transparent", anchor="nw",
+            segmented_button_fg_color=THEME["surface2"],
+            segmented_button_selected_color=THEME["accent"],
+            segmented_button_selected_hover_color=THEME["accent_h"],
+            segmented_button_unselected_color=THEME["surface2"],
+            segmented_button_unselected_hover_color=THEME["hover"],
+            text_color=THEME["fg"])
+        self.org_sub.pack(fill="both", expand=True, padx=6, pady=6)
+        org_merge = self.org_sub.add("Merge files")
+        org_pages = self.org_sub.add("Pages & Split")
+        self.merge_ui = MergeUI(org_merge, self)
+        self.split_ui = SplitUI(org_pages, self)
+
+        self.tools_ui = ToolsUI(self.tab_edit, self,
+            left=["sign", "markup", "organize"], right=["redact", "bookmarks", "extras"])
+        self.conv_ui = ToolsUI(self.tab_conv, self,
+            left=["compress", "convert", "docs"], right=["secure", "compare"])
+
         self.img_ui = ImageToolsUI(self.tab_img, self)
         self.auto_ui = AutomationUI(self.tab_auto, self)
 
@@ -524,20 +563,20 @@ class PDFSuite:
                              width=46, height=46)
         badge.pack(side="left")
         badge.pack_propagate(False)
-        ctk.CTkLabel(badge, text="PDF", font=("Segoe UI", 13, "bold"),
+        ctk.CTkLabel(badge, text="PD", font=("Segoe UI", 13, "bold"),
                      text_color="#ffffff").place(relx=0.5, rely=0.5, anchor="center")
 
         tf = ctk.CTkFrame(inner, fg_color="transparent")
         tf.pack(side="left", padx=(14, 0))
         ctk.CTkLabel(tf, text=APP_NAME, font=FONT_TITLE,
                      text_color=THEME["fg"]).pack(anchor="w")
-        ctk.CTkLabel(tf, text="Merge  ·  Split & Edit  ·  PDF Tools  ·  Image Tools  ·  Automation",
+        ctk.CTkLabel(tf, text="Organize  ·  Edit  ·  Convert & Secure  ·  Images  ·  Automation",
                      font=FONT_SM, text_color=THEME["muted"]).pack(anchor="w")
 
         chip2 = ctk.CTkFrame(inner, fg_color=THEME["surface2"], corner_radius=12,
                              border_width=1, border_color=THEME["border"])
         chip2.pack(side="right", padx=(8, 0))
-        ctk.CTkLabel(chip2, text="★  60+ tools", font=FONT_SM,
+        ctk.CTkLabel(chip2, text="★  100+ tools", font=FONT_SM,
                      text_color=THEME["accent_h"]).pack(padx=12, pady=5)
         chip1 = ctk.CTkFrame(inner, fg_color=THEME["surface2"], corner_radius=12,
                              border_width=1, border_color=THEME["border"])
@@ -609,6 +648,10 @@ class PDFSuite:
         self.recent_files.insert(0, path)
         if len(self.recent_files) > MAX_RECENT: self.recent_files = self.recent_files[:MAX_RECENT]
         self._refresh_recents()
+        try:
+            self.home_ui._refresh_recents()
+        except Exception:
+            pass
 
     def on_close(self):
         self.settings["recent_files"] = self.recent_files
@@ -623,15 +666,16 @@ class PDFSuite:
         RatingDialog(self.root)
 
     def show_about(self):
-        messagebox.showinfo("About PDF Suite Pro",
-            "PDF Suite Pro v" + APP_VERSION + "\n\nCreator: AYUSH GUPTA\n\n"
-            "PDF Tools: merge, split, sign, watermark, header/footer, Bates,\n"
-            "N-up, normalize, crop, bookmarks, metadata, compare, repair,\n"
-            "sanitize, redaction, passwords, compress, QR stamps, mail merge.\n\n"
-            "Image Tools: compress, convert, resize, crop/trim, rotate, filter,\n"
-            "watermark, EXIF strip, borders, icons, images to PDF, PDF to images.\n\n"
+        messagebox.showinfo("About " + APP_NAME,
+            APP_NAME + " v" + APP_VERSION + "\n\nCreator: AYUSH GUPTA\n\n"
+            "PDF: merge, split, sign, watermark, header/footer, Bates, N-up,\n"
+            "normalize, crop, bookmarks, metadata, forms, typewriter, highlight,\n"
+            "find & replace, OCR, redaction, passwords, compare, repair, compress.\n\n"
+            "Images: compress, convert, resize, crop/trim, rotate, filters,\n"
+            "scan cleanup, background remover, upscale, collage, social sizes,\n"
+            "watermark, EXIF view & GPS strip, borders, icons, images ⇄ PDF.\n\n"
             "Automation: recipes, batch queue, watch folders, scheduler,\n"
-            "email reports and a command line companion (PDFSuiteCLI.exe).")
+            "email reports and a command line companion (PageDeckCLI.exe).")
 
     # ── drag & drop ──
     def _setup_dnd(self):
@@ -681,7 +725,14 @@ class PDFSuite:
         if imgs:
             self.img_ui.add_images_to_list(imgs)
         if pdfs or imgs:
-            self.tabview.set("Merge" if pdfs else "Image Tools")
+            try:
+                if pdfs:
+                    self.tabview.set("Organize")
+                    self.org_sub.set("Merge files")
+                else:
+                    self.tabview.set("Images")
+            except Exception:
+                pass
         return "copy"
 
     # ── keyboard shortcuts ──
@@ -815,6 +866,167 @@ class PDFSuite:
 
 
 # ═══════════════════════ MERGE UI ═══════════════════════
+class HomeUI:
+    """Landing page: quick actions, recent files and links."""
+
+    QUICK = [
+        ("Compress PDF", "Shrink for email / WhatsApp", "conv_ui", "compress_pdf"),
+        ("Merge PDFs", "Join files in any order", "merge_ui", "add_files"),
+        ("Images → PDF", "Photo set to one PDF", "img_ui", "images_to_pdf"),
+        ("PDF → Images", "Export pages as pictures", "conv_ui", "pdf_to_images"),
+        ("OCR scan", "Make a scan searchable", "conv_ui", "tool_ocr"),
+        ("Clean document photo", "Straighten + whiten", "img_ui", "scan_cleanup"),
+        ("Remove background", "Transparent PNG from photos", "img_ui", "remove_bg"),
+        ("Social media export", "Ready sizes for posts", "img_ui", "social_export"),
+    ]
+
+    def __init__(self, parent, app):
+        self.parent = parent
+        self.app = app
+        self._build()
+
+    def _build(self):
+        main = ctk.CTkScrollableFrame(self.parent, fg_color="transparent",
+            scrollbar_fg_color="transparent", scrollbar_button_color="#2a3247",
+            scrollbar_button_hover_color="#3a4560")
+        main.pack(fill="both", expand=True, padx=(14, 8), pady=14)
+        main.grid_columnconfigure(0, weight=3, uniform="home")
+        main.grid_columnconfigure(1, weight=2, uniform="home")
+
+        left = ctk.CTkFrame(main, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 7))
+        right = ctk.CTkFrame(main, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew", padx=(7, 0))
+
+        # hero
+        hero = modern_card(left)
+        hero.pack(fill="x", pady=(0, 12))
+        h = ctk.CTkFrame(hero, fg_color="transparent")
+        h.pack(fill="x", padx=18, pady=16)
+        chip = ctk.CTkFrame(h, fg_color=THEME["accent"], corner_radius=12)
+        chip.pack(side="left", padx=(0, 14))
+        ctk.CTkLabel(chip, text="PD", font=("Segoe UI", 20, "bold"),
+                     text_color="#ffffff").pack(padx=14, pady=10)
+        htxt = ctk.CTkFrame(h, fg_color="transparent")
+        htxt.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(htxt, text=APP_NAME + " v" + APP_VERSION,
+                     font=("Segoe UI", 20, "bold"), text_color=THEME["fg"]).pack(anchor="w")
+        ctk.CTkLabel(htxt, text="Your PDF and image toolkit - merge, edit, convert, clean up.",
+                     font=FONT_SM, text_color=THEME["muted"]).pack(anchor="w")
+        ctk.CTkLabel(htxt, text="Tip: drag files straight onto this window to add them.",
+                     font=FONT_SM, text_color=THEME["muted"]).pack(anchor="w", pady=(2, 0))
+
+        # quick actions
+        c = self._card(left, "Quick actions", "One click to start the most used tools")
+        grid = ctk.CTkFrame(c, fg_color="transparent")
+        grid.pack(fill="x")
+        grid.grid_columnconfigure(0, weight=1, uniform="qa")
+        grid.grid_columnconfigure(1, weight=1, uniform="qa")
+        for i, (label, sub, ui_attr, meth) in enumerate(self.QUICK):
+            wrap = ctk.CTkFrame(grid, fg_color=THEME["surface2"], corner_radius=10)
+            wrap.grid(row=i // 2, column=i % 2, sticky="ew", padx=4, pady=4)
+            ctk.CTkButton(wrap, text=label, anchor="w", height=34, corner_radius=8,
+                fg_color="transparent", hover_color=THEME["hover"],
+                text_color=THEME["fg"], font=FONT_BOLD,
+                command=self._make_action(ui_attr, meth)).pack(fill="x", padx=6, pady=(6, 0))
+            ctk.CTkLabel(wrap, text=sub, font=FONT_SM, text_color=THEME["muted"],
+                         anchor="w").pack(fill="x", padx=12, pady=(0, 6))
+
+        # recent files
+        c = self._card(right, "Recent files", "Double-click to add to the merge list")
+        self.recents = tk.Listbox(c, bg=THEME["surface2"], fg=THEME["fg"],
+            selectbackground=THEME["accent"], selectforeground="#ffffff",
+            font=FONT, relief="flat", highlightthickness=0, bd=0,
+            activestyle="none", height=9)
+        self.recents.pack(fill="both", expand=True)
+        self.recents.bind("<Double-Button-1>", self._open_recent)
+        rr = ctk.CTkFrame(c, fg_color="transparent")
+        rr.pack(fill="x", pady=(8, 0))
+        ghost_btn(rr, "Add to merge", self._open_recent, width=110).pack(side="left")
+        ghost_btn(rr, "Open folder", self._reveal_recent, width=110).pack(side="left", padx=6)
+        ghost_btn(rr, "Clear", self._clear_recents, width=70).pack(side="right")
+        self._refresh_recents()
+
+        # links
+        c = self._card(right, "More", "")
+        self._r(c, "Rate & Review", self.app.open_rating)
+        self._r(c, "About " + APP_NAME, self.app.show_about)
+        self._r(c, "Check for updates", lambda: self.app.check_updates(silent=False))
+        self._r(c, "Automation (recipes & watch folders)", self._goto_auto)
+
+    # ── helpers ──
+    def _card(self, parent, title, sub=""):
+        f = modern_card(parent)
+        f.pack(fill="x", pady=(0, 12))
+        c = ctk.CTkFrame(f, fg_color="transparent")
+        c.pack(fill="x", padx=14, pady=14)
+        ctk.CTkLabel(c, text=title, font=FONT_LARGE, text_color=THEME["fg"]).pack(anchor="w")
+        if sub:
+            ctk.CTkLabel(c, text=sub, font=FONT_SM,
+                         text_color=THEME["muted"]).pack(anchor="w", pady=(0, 4))
+        return c
+
+    def _r(self, parent, text, cmd):
+        ghost_btn(parent, text, cmd).pack(fill="x", pady=3)
+
+    def _make_action(self, ui_attr, meth):
+        def go():
+            ui = getattr(self.app, ui_attr, None)
+            fn = getattr(ui, meth, None)
+            if fn:
+                fn()
+        return go
+
+    def _refresh_recents(self):
+        self.recents.delete(0, "end")
+        for p in (self.app.recent_files or []):
+            self.recents.insert("end", os.path.basename(p))
+
+    def _recent_at(self):
+        sel = self.recents.curselection()
+        recents = self.app.recent_files or []
+        if sel and 0 <= sel[0] < len(recents):
+            return recents[sel[0]]
+        return None
+
+    def _open_recent(self, *_e):
+        p = self._recent_at()
+        if not p:
+            messagebox.showinfo("Recent files", "Nothing selected.")
+            return
+        if not os.path.isfile(p):
+            messagebox.showerror("Recent files", "File no longer exists:\n%s" % p)
+            return
+        self.app.merge_ui.add_files_to_merge([p])
+        try:
+            self.app.tabview.set("Organize")
+        except Exception:
+            pass
+
+    def _reveal_recent(self):
+        p = self._recent_at()
+        if p:
+            try:
+                os.startfile(os.path.dirname(os.path.abspath(p)))
+            except Exception:
+                pass
+
+    def _clear_recents(self):
+        self.app.recent_files = []
+        try:
+            self.app.settings["recent_files"] = []
+            save_settings(self.app.settings)
+        except Exception:
+            pass
+        self._refresh_recents()
+
+    def _goto_auto(self):
+        try:
+            self.app.tabview.set("Automation")
+        except Exception:
+            pass
+
+
 class MergeUI:
     def __init__(self, parent, app):
         self.parent = parent; self.app = app
@@ -1177,7 +1389,7 @@ class SplitUI:
         inner = ctk.CTkFrame(view, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=10, pady=10)
         inner.grid_rowconfigure(0, weight=1); inner.grid_columnconfigure(0, weight=1)
-        self.canvas = tk.Canvas(inner, bg=THEME["canvas_bg"], highlightthickness=0)
+        self.canvas = tk.Canvas(inner, bg=THEME["canvas_bg"], highlightthickness=0, height=200)
         vs = ctk.CTkScrollbar(inner, command=self.canvas.yview, width=12,
             fg_color="transparent", button_color="#2a3247", button_hover_color="#3a4560")
         hs = ctk.CTkScrollbar(inner, orientation="horizontal", command=self.canvas.xview, width=12,
@@ -1190,12 +1402,6 @@ class SplitUI:
         self.cw = self.canvas.create_window((0, 0), window=self.tc, anchor="nw")
         self.tc.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", self._on_canvas_resize)
-
-    def _on_canvas_resize(self, e):
-        self.canvas.itemconfig(self.cw, width=e.width)
-        cols = max(1, e.width // (THUMB_W + 32))
-        if self.doc and cols != self._last_cols:
-            self.parent.after(30, self._render_thumbs)
 
         # ── actions card ──
         act = modern_card(f, corner_radius=12); act.pack(fill="x", pady=(0, 10))
@@ -1216,7 +1422,7 @@ class SplitUI:
         self.undo_btn.pack(side="right", padx=4)
         self._update_undo_buttons()
 
-        r2 = ctk.CTkFrame(act, fg_color="transparent"); r2.pack(fill="x", padx=10, pady=(4, 10))
+        r2 = ctk.CTkFrame(act, fg_color="transparent"); r2.pack(fill="x", padx=10, pady=(4, 6))
         ctk.CTkLabel(r2, text="Pages", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
         ghost_btn(r2, "Delete", self.del_sel, width=76).pack(side="left", padx=2)
         ghost_btn(r2, "Restore", self.restore, width=82).pack(side="left", padx=2)
@@ -1231,6 +1437,19 @@ class SplitUI:
         ghost_btn(r2, "Bookmarks", self.split_bookmarks, width=96).pack(side="left", padx=2)
         dark_check(r2, "Compress", self.var_compress).pack(side="right")
         primary_btn(r2, "Save As", self.save_as, width=100, height=34).pack(side="right", padx=(0, 14))
+
+        r3 = ctk.CTkFrame(act, fg_color="transparent"); r3.pack(fill="x", padx=10, pady=(0, 10))
+        ctk.CTkLabel(r3, text="Smart split", font=FONT_SM, text_color=THEME["muted"]).pack(side="left", padx=(2, 8))
+        ghost_btn(r3, "Every N pages…", self.split_by_count, width=132).pack(side="left", padx=2)
+        ghost_btn(r3, "At keyword…", self.split_keyword, width=118).pack(side="left", padx=2)
+        ghost_btn(r3, "At blank pages", self.split_blank, width=126).pack(side="left", padx=2)
+        ghost_btn(r3, "Even / odd", self.split_even_odd, width=110).pack(side="left", padx=2)
+
+    def _on_canvas_resize(self, e):
+        self.canvas.itemconfig(self.cw, width=e.width)
+        cols = max(1, e.width // (THUMB_W + 32))
+        if self.doc and cols != self._last_cols:
+            self.parent.after(30, self._render_thumbs)
 
     def open_pdf(self):
         p = filedialog.askopenfilename(title="Open PDF", filetypes=[("PDF", "*.pdf")])
@@ -1771,6 +1990,92 @@ class SplitUI:
             messagebox.showinfo("Success", "Even/odd saved to:\n%s" % d)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _append_pages(self, nd, indexes):
+        for i in indexes:
+            nd.insert_pdf(self.doc, from_page=i, to_page=i)
+            r = self.page_rots.get(i, 0)
+            if r and len(nd):
+                nd[len(nd) - 1].set_rotation(r)
+
+    def _save_segments(self, segments, name_fmt):
+        d = filedialog.askdirectory(title="Select output folder")
+        if not d:
+            return None
+        cnt = 0
+        for n, seg in enumerate(segments, 1):
+            if not seg:
+                continue
+            nd = fitz.open()
+            try:
+                self._append_pages(nd, seg)
+                safe_save(nd, os.path.join(d, name_fmt % n), self.var_compress.get())
+                cnt += 1
+            finally:
+                nd.close()
+        return d, cnt
+
+    def _segments_between(self, starts):
+        keep = [i for i in range(len(self.doc)) if i not in self.page_del]
+        starts = set(starts)
+        segs, cur = [], []
+        for i in keep:
+            if i in starts and cur:
+                segs.append(cur)
+                cur = []
+            cur.append(i)
+        if cur:
+            segs.append(cur)
+        return segs
+
+    def split_keyword(self):
+        if not self.doc: return
+        kw = simpledialog.askstring("Split at keyword",
+                                    "New file starts on every page containing:",
+                                    parent=self.parent)
+        if not kw: return
+        starts = []
+        for i in range(len(self.doc)):
+            if i in self.page_del:
+                continue
+            try:
+                txt = self.doc[i].get_text() or ""
+            except Exception:
+                txt = ""
+            if kw.lower() in txt.lower():
+                starts.append(i)
+        if not starts:
+            messagebox.showinfo("Split at keyword", "Keyword not found in any page.")
+            return
+        res = self._save_segments(self._segments_between(starts), "part_%02d.pdf")
+        if res:
+            messagebox.showinfo("Success", "Split into %d file(s) in:\n%s" % (res[1], res[0]))
+
+    def split_blank(self):
+        if not self.doc: return
+        blanks = set(i for i in range(len(self.doc))
+                     if i not in self.page_del and fp._page_is_blank(self.doc[i]))
+        if not blanks:
+            messagebox.showinfo("Split at blank pages", "No blank separator pages found.")
+            return
+        keep = [i for i in range(len(self.doc))
+                if i not in self.page_del and i not in blanks]
+        segs, cur, prev = [], [], None
+        for i in keep:
+            if prev is not None and i != prev + 1 and cur:
+                segs.append(cur)
+                cur = []
+            cur.append(i)
+            prev = i
+        if cur:
+            segs.append(cur)
+        if len(segs) < 2:
+            messagebox.showinfo("Split at blank pages",
+                                "The blank pages do not split the document into parts.")
+            return
+        res = self._save_segments(segs, "doc_%02d.pdf")
+        if res:
+            messagebox.showinfo("Success", "Split into %d file(s) in:\n%s" % (res[1], res[0]))
 
     def extract_images(self):
         if not self.doc: return
@@ -2396,7 +2701,7 @@ class SignatureStudio:
 class SignPreviewDialog:
     """Click on a rendered page to choose the signature position."""
 
-    def __init__(self, parent, pdf_path, page_index=0):
+    def __init__(self, parent, pdf_path, page_index=0, title=None, hint=None):
         self.result = None
         self.cx = None
         self.cy = None
@@ -2407,13 +2712,13 @@ class SignPreviewDialog:
         self._tmp = tmp.name
         self.photo = tk.PhotoImage(file=tmp.name)
         self.top = ctk.CTkToplevel(parent)
-        self.top.title("Click to place the signature")
+        self.top.title(title or "Click to place the signature")
         self.top.transient(parent)
         self.top.grab_set()
         self.top.configure(fg_color=THEME["bg"])
         card = modern_card(self.top)
         card.pack(fill="both", expand=True, padx=14, pady=14)
-        ctk.CTkLabel(card, text="Click on the page — the click point is the signature centre",
+        ctk.CTkLabel(card, text=hint or "Click on the page — the click point is the signature centre",
                      font=FONT_BOLD, text_color=THEME["fg"]).pack(anchor="w", padx=16,
                                                                  pady=(14, 2))
         self.cv = tk.Canvas(card, width=self.photo.width(), height=self.photo.height(),
@@ -2458,6 +2763,141 @@ class SignPreviewDialog:
     def _close(self):
         try:
             os.unlink(self._tmp)
+        except Exception:
+            pass
+        self.top.destroy()
+
+
+class PageMarkupDialog:
+    """Draw boxes on rendered PDF pages (redaction areas).
+
+    result: None (cancelled) or [(page_index, fx0, fy0, fx1, fy1)] fractions.
+    """
+
+    VIEW_W = 540
+
+    def __init__(self, parent, pdf_path, title="Draw areas", hint=""):
+        self.result = None
+        self.pdf_path = pdf_path
+        self.doc = fitz.open(pdf_path)
+        self.page_i = 0
+        self.rects = {}
+        self._photo = None
+        self._drag = None
+        self.top = ctk.CTkToplevel(parent)
+        self.top.title(title)
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.configure(fg_color=THEME["bg"])
+        card = modern_card(self.top)
+        card.pack(fill="both", expand=True, padx=14, pady=14)
+        ctk.CTkLabel(card, text=title, font=FONT_BOLD,
+                     text_color=THEME["fg"]).pack(anchor="w", padx=16, pady=(14, 2))
+        if hint:
+            ctk.CTkLabel(card, text=hint, font=FONT_SM, text_color=THEME["muted"],
+                         wraplength=560, justify="left").pack(anchor="w", padx=16)
+        self.cv = tk.Canvas(card, highlightthickness=1,
+                            highlightbackground=THEME["border"], cursor="crosshair")
+        self.cv.pack(padx=16, pady=10)
+        self.cv.bind("<ButtonPress-1>", self._press)
+        self.cv.bind("<B1-Motion>", self._motion)
+        self.cv.bind("<ButtonRelease-1>", self._release)
+        nav = ctk.CTkFrame(card, fg_color="transparent")
+        nav.pack(fill="x", padx=16)
+        ghost_btn(nav, "‹ Prev", lambda: self.goto(self.page_i - 1), width=84).pack(side="left")
+        ghost_btn(nav, "Next ›", lambda: self.goto(self.page_i + 1), width=84).pack(side="left", padx=6)
+        self.pg_lbl = ctk.CTkLabel(nav, text="", font=FONT_SM, text_color=THEME["muted"])
+        self.pg_lbl.pack(side="left", padx=8)
+        ghost_btn(nav, "Undo box", self.undo_box, width=96).pack(side="right")
+        ghost_btn(nav, "Clear page", self.clear_page, width=100).pack(side="right", padx=6)
+        bf = ctk.CTkFrame(card, fg_color="transparent")
+        bf.pack(fill="x", padx=16, pady=(10, 14))
+        self.info = ctk.CTkLabel(bf, text="", font=FONT_SM, text_color=THEME["muted"])
+        self.info.pack(side="left")
+        primary_btn(bf, "Use these areas", self._ok, width=150, height=34).pack(side="right")
+        ghost_btn(bf, "Cancel", self._close, width=90).pack(side="right", padx=8)
+        self.top.protocol("WM_DELETE_WINDOW", self._close)
+        self._render()
+        self.top.update_idletasks()
+        try:
+            self.top.geometry("+%d+%d" % (parent.winfo_rootx() + 60,
+                                          parent.winfo_rooty() + 30))
+        except Exception:
+            pass
+        self.top.wait_window()
+
+    def _render(self):
+        import base64
+        png, _pw, _ph = fp.render_page_image(self.pdf_path, self.page_i,
+                                             width=self.VIEW_W)
+        self._photo = tk.PhotoImage(data=base64.b64encode(png).decode("ascii"))
+        self.cv.configure(width=self._photo.width(), height=self._photo.height())
+        self.cv.delete("all")
+        self.cv.create_image(0, 0, anchor="nw", image=self._photo)
+        for (x0, y0, x1, y1) in self.rects.get(self.page_i, []):
+            self.cv.create_rectangle(x0, y0, x1, y1, outline="#ef4444", width=2)
+        self.pg_lbl.configure(text="Page %d / %d" % (self.page_i + 1, self.doc.page_count))
+        self._upd_info()
+
+    def goto(self, i):
+        if 0 <= i < self.doc.page_count:
+            self.page_i = i
+            self._render()
+
+    def _press(self, e):
+        self._drag = (e.x, e.y)
+
+    def _motion(self, e):
+        if not self._drag:
+            return
+        self.cv.delete("tmp")
+        self.cv.create_rectangle(self._drag[0], self._drag[1], e.x, e.y,
+                                 outline="#f59e0b", width=2, dash=(4, 3), tags="tmp")
+
+    def _release(self, e):
+        if not self._drag:
+            return
+        x0, y0 = self._drag
+        self._drag = None
+        self.cv.delete("tmp")
+        x1, y1 = e.x, e.y
+        if abs(x1 - x0) < 5 or abs(y1 - y0) < 5:
+            return
+        box = (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+        self.rects.setdefault(self.page_i, []).append(box)
+        self.cv.create_rectangle(*box, outline="#ef4444", width=2)
+        self._upd_info()
+
+    def undo_box(self):
+        lst = self.rects.get(self.page_i) or []
+        if lst:
+            lst.pop()
+        self._render()
+
+    def clear_page(self):
+        self.rects.pop(self.page_i, None)
+        self._render()
+
+    def _upd_info(self):
+        n = sum(len(v) for v in self.rects.values())
+        self.info.configure(text="%d box(es) drawn" % n)
+
+    def _ok(self):
+        out = []
+        w = max(1, self._photo.width())
+        h = max(1, self._photo.height())
+        for pidx, boxes in self.rects.items():
+            for (x0, y0, x1, y1) in boxes:
+                out.append((pidx, max(0.0, min(1.0, x0 / float(w))),
+                            max(0.0, min(1.0, y0 / float(h))),
+                            max(0.0, min(1.0, x1 / float(w))),
+                            max(0.0, min(1.0, y1 / float(h)))))
+        self.result = out
+        self._close()
+
+    def _close(self):
+        try:
+            self.doc.close()
         except Exception:
             pass
         self.top.destroy()
@@ -2684,10 +3124,17 @@ class MetadataDialog:
 
 # ═══════════════════════ PDF TOOLS (v4) ═══════════════════════
 class ToolsUI:
-    def __init__(self, parent, app):
+    """Sectionised PDF toolbox - one instance per category tab."""
+
+    ALL_SECTIONS = ["sign", "markup", "organize", "bookmarks", "redact",
+                    "compress", "convert", "docs", "secure", "compare", "extras"]
+
+    def __init__(self, parent, app, left=None, right=None):
         self.parent = parent
         self.app = app
         self.signer_var = tk.StringVar(value="AYUSH GUPTA")
+        self.left_secs = list(left) if left else list(self.ALL_SECTIONS)
+        self.right_secs = list(right) if right else []
         self._build()
 
     def _build(self):
@@ -2701,9 +3148,14 @@ class ToolsUI:
         left.grid(row=0, column=0, sticky="new", padx=(0, 7))
         right = ctk.CTkFrame(main, fg_color="transparent")
         right.grid(row=0, column=1, sticky="new", padx=(7, 7))
+        for name in self.left_secs:
+            getattr(self, "_sec_" + name)(left)
+        for name in self.right_secs:
+            getattr(self, "_sec_" + name)(right)
 
-        # ── left column ──
-        c = self._card(left, "Sign & stamps",
+    # ── sections ──
+    def _sec_sign(self, col):
+        c = self._card(col, "Sign & stamps",
                        "Signature, watermark, header/footer, Bates, QR codes")
         ctk.CTkLabel(c, text="Signer name (for text-block signing)", font=FONT_SM,
                      text_color=THEME["muted"]).pack(anchor="w", pady=(2, 2))
@@ -2716,51 +3168,73 @@ class ToolsUI:
         self._r(c, "Header & footer / page numbers…", self.header_footer)
         self._r(c, "Bates numbering…", self.bates_numbering)
 
-        c = self._card(left, "Organize & pages", "Resize, trim, arrange")
+    def _sec_markup(self, col):
+        c = self._card(col, "Mark up & find",
+                       "Type on the page, fill forms, highlight, replace text")
+        self._r(c, "Typewriter — add text…", self.tool_typewriter)
+        self._r(c, "Fill form fields…", self.tool_forms)
+        self._r(c, "Highlight a phrase…", self.tool_highlight)
+        self._r(c, "Find & replace text…", self.tool_find_replace)
+
+    def _sec_organize(self, col):
+        c = self._card(col, "Organize & pages", "Resize, trim, arrange")
         self._r(c, "Normalize page size (A4 / Letter)…", self.normalize_pages)
         self._r(c, "Auto-trim white margins", self.trim_white)
         self._r(c, "Crop margins (mm)…", self.crop_margins)
         self._r(c, "Pages per sheet (N-up)…", self.nup_pages)
-        self._r(c, "Split by size (MB)…", self.split_by_size)
         self._r(c, "Print PDF…", self.print_pdf)
 
-        c = self._card(left, "Compress & optimize", "Lossless levels or a target size")
+    def _sec_bookmarks(self, col):
+        c = self._card(col, "Bookmarks", "")
+        self._r(c, "Bookmark editor…", self.bookmark_editor)
+        self._r(c, "Auto-generate from headings", self.auto_bookmarks)
+
+    def _sec_redact(self, col):
+        c = self._card(col, "Redaction & privacy", "Black out content for good")
+        self._r(c, "Redact text…", self.redact_text)
+        self._r(c, "Auto-redact patterns (email / phone / card / Aadhaar / PAN)…",
+                self.auto_redact)
+        self._r(c, "Draw redaction areas on pages…", self.tool_redact_areas)
+        self._r(c, "Edit metadata…", self.edit_metadata)
+        self._r(c, "Remove metadata", self.remove_metadata)
+
+    def _sec_compress(self, col):
+        c = self._card(col, "Compress & optimize", "Lossless levels or a target size")
         self._r(c, "Compress PDF…", self.compress_pdf)
         self._r(c, "Compress to target size (MB)…", self.compress_target)
+        self._r(c, "Split by size (MB)…", self.split_by_size)
 
-        c = self._card(left, "Convert & extract", "")
+    def _sec_convert(self, col):
+        c = self._card(col, "Convert & extract", "")
         self._r(c, "PDF → images at DPI…", self.pdf_to_images)
         self._r(c, "Extract text from PDF…", lambda: self._run_split("extract_text"))
         self._r(c, "Extract images from PDF…", lambda: self._run_split("extract_images"))
         self._r(c, "Convert to grayscale…", lambda: self._run_split("to_grayscale"))
+        ctk.CTkFrame(c, height=1, fg_color=THEME["border"]).pack(fill="x", pady=8)
+        self._r(c, "Add attachment inside PDF…", self.tool_attach_add)
+        self._r(c, "Extract attachments…", self.tool_attach_extract)
 
-        c = self._card(left, "Compare & repair", "")
-        self._r(c, "Compare two PDFs…", self.compare_pdfs)
-        self._r(c, "Repair / rebuild PDF…", self.repair_doc)
-        self._r(c, "Sanitize (strip JS & embedded files)…", self.sanitize_doc)
+    def _sec_docs(self, col):
+        c = self._card(col, "OCR & Office", "Scans and office documents")
+        self._r(c, "OCR scan → searchable PDF…", self.tool_ocr)
+        self._r(c, "Word / Excel / PPT → PDF…", self.tool_office)
 
-        # ── right column ──
-        c = self._card(right, "Security & redaction", "")
-        self._r(c, "Redact text…", self.redact_text)
-        self._r(c, "Auto-redact patterns (email / phone / card / Aadhaar / PAN)…",
-                self.auto_redact)
+    def _sec_secure(self, col):
+        c = self._card(col, "Security", "")
         self._r(c, "Password protect PDF…", self.password_protect)
         self._r(c, "Remove password from PDF…", self.remove_password)
-        self._r(c, "Edit metadata…", self.edit_metadata)
-        self._r(c, "Remove metadata", self.remove_metadata)
+        self._r(c, "Sanitize (strip JS & embedded files)…", self.sanitize_doc)
 
-        c = self._card(right, "Bookmarks", "")
-        self._r(c, "Bookmark editor…", self.bookmark_editor)
-        self._r(c, "Auto-generate from headings", self.auto_bookmarks)
+    def _sec_compare(self, col):
+        c = self._card(col, "Compare & repair", "")
+        self._r(c, "Compare two PDFs…", self.compare_pdfs)
+        self._r(c, "Repair / rebuild PDF…", self.repair_doc)
 
-        c = self._card(right, "Miscellaneous", "")
+    def _sec_extras(self, col):
+        c = self._card(col, "Extras", "")
         self._r(c, "Add page numbers", self.add_page_numbers)
         self._r(c, "Flatten PDF (annotations)", self.flatten_pdf)
         self._r(c, "Clone open PDF x2", lambda: self._run_split("dup_pgs"))
-        ctk.CTkFrame(c, height=1, fg_color=THEME["border"]).pack(fill="x", pady=8)
-        ctk.CTkButton(c, text="★  Rate & Review", command=self.open_rating, height=36,
-            fg_color=THEME["accent2"], hover_color="#9d74ff", text_color="#ffffff",
-            corner_radius=9, font=FONT_BOLD).pack(fill="x")
 
     # ── layout helpers ──
     def _card(self, parent, title, sub=""):
@@ -3281,6 +3755,285 @@ class ToolsUI:
 
 
 # ═══════════════════════ IMAGE TOOLS (v4) ═══════════════════════
+    # ── v5.0: markup & conversion tools ──
+    def _pick_pdf(self, title="Select PDF"):
+        return filedialog.askopenfilename(title=title, filetypes=[("PDF", "*.pdf")])
+
+    def _save_as_pdf(self, path, suffix):
+        base = os.path.splitext(os.path.basename(path))[0]
+        return filedialog.asksaveasfilename(
+            title="Save output", defaultextension=".pdf",
+            filetypes=[("PDF", "*.pdf")], initialfile=base + suffix + ".pdf")
+
+    def tool_typewriter(self):
+        path = self._pick_pdf("Typewriter — select PDF")
+        if not path:
+            return
+        try:
+            total = fp.page_count(path)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            return
+        fields = [("text", "Text to place", "text", ""),
+                  ("page", "Page (1-%d or 'last')" % total, "text", "1"),
+                  ("size", "Font size", "int", 14),
+                  ("colour", "Colour", "combo", "Black",
+                   ["Black", "Red", "Blue", "Green"])]
+        dlg = SimpleFormDialog(self.parent, "Typewriter", fields,
+            intro="After OK, click on the page to choose where the text goes.")
+        if dlg.result is None:
+            return
+        prm = dlg.result
+        txt = (prm.get("text") or "").strip()
+        if not txt:
+            messagebox.showerror("Error", "Enter the text to place.")
+            return
+        pg = str(prm.get("page")).strip().lower()
+        try:
+            idx = total - 1 if pg == "last" else max(0, min(int(float(pg)) - 1, total - 1))
+        except Exception:
+            idx = 0
+        d = SignPreviewDialog(self.parent, path, idx,
+            title="Typewriter — click the position",
+            hint="Click on the page - the text starts at that point")
+        if d.result is None:
+            return
+        cx, cy = d.result
+        out = self._save_as_pdf(path, "_text")
+        if not out:
+            return
+        colours = {"Black": (0, 0, 0), "Red": (0.85, 0.1, 0.1),
+                   "Blue": (0.1, 0.25, 0.85), "Green": (0.05, 0.5, 0.2)}
+        col = colours.get(str(prm.get("colour")), (0, 0, 0))
+        self.app.run_bg(
+            lambda pr: fp.typewriter_text(path, out, txt, idx, cx, cy,
+                                          fontsize=int(prm.get("size") or 14), color=col),
+            "Adding text…", on_done=lambda r: self._done("Text added to page %d" % (idx + 1), out))
+
+    def tool_forms(self):
+        path = self._pick_pdf("Fill forms — select PDF")
+        if not path:
+            return
+        try:
+            flds = fp.list_form_fields(path)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            return
+        if not flds:
+            messagebox.showinfo("Fill forms",
+                "This PDF has no fillable form fields.\n\n"
+                "Tip: use the Typewriter to write over a scanned form instead.")
+            return
+        fields = [("flatten", "Flatten after filling (locks the values in)", "check", True)]
+        types = {}
+        for f in flds:
+            name = f["name"]
+            if not name or name in types:
+                continue
+            types[name] = f["type"]
+            label = "%s  (page %d)" % (name, f["page"])
+            if f["type"] in ("checkbox",):
+                fields.append((name, label, "combo", "off", ["off", "on"]))
+            else:
+                fields.append((name, label, "text", f["value"]))
+        dlg = SimpleFormDialog(self.parent, "Fill form fields (%d)" % len(types), fields,
+            intro="Values are written into the PDF and saved as a new file.")
+        if dlg.result is None:
+            return
+        vals = {}
+        for k, v in dlg.result.items():
+            if k == "flatten":
+                continue
+            if types.get(k) == "checkbox":
+                vals[k] = str(v).lower() in ("on", "true", "1", "yes", "x")
+            else:
+                vals[k] = str(v)
+        flatten = bool(dlg.result.get("flatten"))
+        out = self._save_as_pdf(path, "_filled")
+        if not out:
+            return
+        def done(res):
+            _o, n = res if isinstance(res, tuple) else (out, 0)
+            self._done("Filled %d field(s)" % n, _o)
+        self.app.run_bg(lambda pr: fp.fill_forms(path, out, vals, flatten=flatten),
+                        "Filling form…", on_done=done)
+
+    def tool_highlight(self):
+        path = self._pick_pdf("Highlight — select PDF")
+        if not path:
+            return
+        fields = [("phrase", "Phrase to highlight", "text", ""),
+                  ("colour", "Colour", "combo", "Yellow",
+                   ["Yellow", "Green", "Pink", "Blue"])]
+        dlg = SimpleFormDialog(self.parent, "Highlight a phrase", fields,
+            intro="Every occurrence of the phrase on every page gets highlighted.")
+        if dlg.result is None:
+            return
+        ph = (dlg.result.get("phrase") or "").strip()
+        if not ph:
+            messagebox.showerror("Error", "Enter a phrase.")
+            return
+        colours = {"Yellow": (1.0, 0.92, 0.2), "Green": (0.45, 0.95, 0.45),
+                   "Pink": (1.0, 0.6, 0.8), "Blue": (0.5, 0.75, 1.0)}
+        col = colours.get(str(dlg.result.get("colour")), colours["Yellow"])
+        out = self._save_as_pdf(path, "_highlight")
+        if not out:
+            return
+        def done(res):
+            o2, n = res if isinstance(res, tuple) else (out, 0)
+            self._done("Highlighted %d occurrence(s)" % n, o2)
+        self.app.run_bg(lambda pr: fp.highlight_text(path, out, ph, color=col, progress=pr),
+                        "Highlighting…", on_done=done)
+
+    def tool_find_replace(self):
+        path = self._pick_pdf("Find & replace — select PDF")
+        if not path:
+            return
+        fields = [("find", "Find", "text", ""),
+                  ("replace", "Replace with", "text", ""),
+                  ("match_case", "Match case", "check", False),
+                  ("whole_word", "Whole words only", "check", False)]
+        dlg = SimpleFormDialog(self.parent, "Find & replace text", fields,
+            intro="Old text is redacted away, the replacement is typed at the same spot.")
+        if dlg.result is None:
+            return
+        find = (dlg.result.get("find") or "").strip()
+        if not find:
+            messagebox.showerror("Error", "Enter text to find.")
+            return
+        replace = str(dlg.result.get("replace") or "")
+        out = self._save_as_pdf(path, "_replaced")
+        if not out:
+            return
+        def done(res):
+            o2, n = res if isinstance(res, tuple) else (out, 0)
+            self._done("Replaced %d occurrence(s)" % n, o2)
+        self.app.run_bg(
+            lambda pr: fp.search_replace(path, out, find, replace,
+                match_case=bool(dlg.result.get("match_case")),
+                whole_word=bool(dlg.result.get("whole_word")), progress=pr),
+            "Replacing…", on_done=done)
+
+    def tool_redact_areas(self):
+        path = self._pick_pdf("Redact areas — select PDF")
+        if not path:
+            return
+        dlg = PageMarkupDialog(self.parent, path, "Draw redaction areas",
+            "Drag a box over anything that must be removed permanently. "
+            "Use Prev / Next for other pages.")
+        if dlg.result is None:
+            return
+        if not dlg.result:
+            messagebox.showinfo("Redaction", "No areas were drawn.")
+            return
+        out = self._save_as_pdf(path, "_redacted")
+        if not out:
+            return
+        areas = dlg.result
+        n = len(areas)
+        self.app.run_bg(lambda pr: fp.redact_areas(path, out, areas),
+                        "Redacting…",
+                        on_done=lambda r: self._done("Redacted %d area(s)" % n, out))
+
+    def tool_ocr(self):
+        path = self._pick_pdf("OCR — select scanned PDF")
+        if not path:
+            return
+        if not fp.tesseract_path():
+            if messagebox.askyesno("OCR needs Tesseract",
+                    fp.OCR_HELP + "\n\nOpen the download page now?"):
+                webbrowser.open("https://github.com/UB-Mannheim/tesseract/wiki")
+            return
+        fields = [("lang", "Language(s)", "text", "eng"),
+                  ("dpi", "Render DPI", "int", 200),
+                  ("mode", "Output", "combo", "Searchable PDF",
+                   ["Searchable PDF", "Plain text"])]
+        dlg = SimpleFormDialog(self.parent, "OCR scan", fields,
+            intro="Language codes: eng, hin, eng+hin ... (extra languages are chosen "
+                  "during Tesseract setup)")
+        if dlg.result is None:
+            return
+        prm = dlg.result
+        txt_mode = str(prm.get("mode")).startswith("Plain")
+        try:
+            total = fp.page_count(path)
+        except Exception:
+            total = 0
+        base = os.path.splitext(os.path.basename(path))[0]
+        out = filedialog.asksaveasfilename(
+            title="Save OCR output",
+            defaultextension=".txt" if txt_mode else ".pdf",
+            filetypes=[("Text file", "*.txt")] if txt_mode else [("PDF", "*.pdf")],
+            initialfile=base + ("_ocr.txt" if txt_mode else "_ocr.pdf"))
+        if not out:
+            return
+        def done(r):
+            extra = "%d page(s) processed" % total if total else ""
+            self._done("OCR finished", r, extra=extra)
+        self.app.run_bg(
+            lambda pr: fp.ocr_pdf(path, out, lang=str(prm.get("lang") or "eng"),
+                                  dpi=int(prm.get("dpi") or 200),
+                                  mode="txt" if txt_mode else "pdf", progress=pr),
+            "Running OCR…", on_done=done, maxval=max(1, total))
+
+    def tool_office(self):
+        if not fp.soffice_path():
+            if messagebox.askyesno("Office → PDF needs LibreOffice",
+                    fp.OFFICE_HELP + "\n\nOpen the download page now?"):
+                webbrowser.open("https://www.libreoffice.org/download/")
+            return
+        files = filedialog.askopenfilenames(title="Select Word / Excel / PowerPoint files",
+            filetypes=[("Office documents",
+                        "*.docx *.doc *.xlsx *.xls *.pptx *.ppt *.odt *.ods *.odp *.rtf"),
+                       ("All files", "*.*")])
+        if not files:
+            return
+        files = list(files)
+        d = filedialog.askdirectory(title="Output folder — Office → PDF")
+        if not d:
+            return
+        def done(res):
+            self._done("Converted %d of %d file(s)" % (len(res), len(files)),
+                       res[0] if res else "")
+        self.app.run_bg(lambda pr: fp.office_to_pdf(files, d, progress=pr),
+                        "Converting with LibreOffice…", on_done=done, maxval=len(files))
+
+    def tool_attach_add(self):
+        path = self._pick_pdf("Add attachment — select PDF")
+        if not path:
+            return
+        f = filedialog.askopenfilename(title="Choose the file to attach")
+        if not f:
+            return
+        out = self._save_as_pdf(path, "_attached")
+        if not out:
+            return
+        self.app.run_bg(lambda pr: fp.add_attachment(path, out, f),
+                        "Attaching…",
+                        on_done=lambda r: self._done(
+                            "Attached %s" % os.path.basename(f), out))
+
+    def tool_attach_extract(self):
+        path = self._pick_pdf("Extract attachments — select PDF")
+        if not path:
+            return
+        try:
+            items = fp.list_attachments(path)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            return
+        if not items:
+            messagebox.showinfo("Attachments", "This PDF has no embedded files.")
+            return
+        d = filedialog.askdirectory(title="Output folder for attachments")
+        if not d:
+            return
+        self.app.run_bg(lambda pr: fp.extract_attachments(path, d),
+                        "Extracting…",
+                        on_done=lambda written: self._done(
+                            "Extracted %d file(s)" % len(written), d))
+
+
 class ImageToolsUI:
     def __init__(self, parent, app):
         self.parent = parent
@@ -3380,6 +4133,12 @@ class ImageToolsUI:
         self._r(c, "Apply rotation / flip", self.rotate_images)
         self._r(c, "Grayscale", self.grayscale_images)
 
+        c = self._card(left, "Clean up & fix", "Photos of documents, products and people")
+        self._r(c, "Scan cleanup (straighten + whiten)…", self.scan_cleanup)
+        self._r(c, "Remove background (solid colours)…", self.remove_bg)
+        self._r(c, "Upscale 2x - 4x…", self.upscale_tool)
+        self._r(c, "Crop same margins (%)…", self.crop_batch)
+
         # ── right column ──
         c = self._card(right, "Enhance & filters", "1.0 = unchanged")
         self.sliders = {}
@@ -3410,7 +4169,7 @@ class ImageToolsUI:
         wf.pack(fill="x")
         ctk.CTkLabel(wf, text="Text", font=FONT_SM,
                      text_color=THEME["muted"]).pack(side="left", padx=(0, 8))
-        self.wm_var = tk.StringVar(value="PDF Suite Pro")
+        self.wm_var = tk.StringVar(value="PageDeck")
         accent_entry(wf, textvariable=self.wm_var, height=30).pack(side="left", fill="x",
                                                                   expand=True)
         pf = ctk.CTkFrame(c, fg_color="transparent")
@@ -3428,6 +4187,24 @@ class ImageToolsUI:
         self.wm_op.set(0.55)
         self.wm_op.pack(side="left", fill="x", expand=True)
         self._r(c, "Apply watermark", self.watermark_images)
+
+        c = self._card(right, "Filters & looks", "One-click moods for the whole list")
+        ff = ctk.CTkFrame(c, fg_color="transparent")
+        ff.pack(fill="x")
+        ctk.CTkLabel(ff, text="Filter", font=FONT_SM,
+                     text_color=THEME["muted"]).pack(side="left", padx=(0, 8))
+        self.filter_combo = modern_combo(ff, list(fi.FILTERS), width=140)
+        self.filter_combo.set(fi.FILTERS[0])
+        self.filter_combo.pack(side="left")
+        self._r(c, "Apply filter to list", self.filters_tool)
+
+        c = self._card(right, "Social & collage", "")
+        self._r(c, "Social media export…", self.social_export)
+        self._r(c, "Make collage from list…", self.collage_maker)
+
+        c = self._card(right, "EXIF & privacy", "")
+        self._r(c, "View EXIF of selected image…", self.exif_view)
+        self._r(c, "Remove GPS location", self.exif_remove_gps)
 
         c = self._card(right, "Create PDF / export", "")
         xf = ctk.CTkFrame(c, fg_color="transparent")
@@ -3636,7 +4413,7 @@ class ImageToolsUI:
              ("color", "Colour (name or #hex)", "text", "#ffffff")])
 
     def watermark_images(self):
-        text = self.wm_var.get().strip() or "PDF Suite Pro"
+        text = self.wm_var.get().strip() or "PageDeck"
         pos = self.wm_pos.get()
         op = float(self.wm_op.get())
         self._img_op("Watermark images",
@@ -3736,6 +4513,165 @@ class ImageToolsUI:
             msg += "\n%d failed:\n%s" % (len(bad), "\n".join(bad[:5]))
         messagebox.showinfo("Rename", msg)
 
+    # ── v5.0: cleanup, filters, social, EXIF ──
+    def _run_each(self, paths, fn, pr=None):
+        res = []
+        total = len(paths)
+        for i, p in enumerate(paths):
+            try:
+                res.append((p, fn(p), None))
+            except Exception as e:
+                res.append((p, None, str(e)))
+            if pr:
+                pr(i + 1, total)
+        return res
+
+    def _one(self, res):
+        _src, out, err = res[0]
+        if err:
+            raise RuntimeError(err)
+        return out
+
+    def scan_cleanup(self):
+        self._img_op("Scan cleanup",
+            lambda paths, d, prm, pr: self._run_each(paths, lambda p: fi.scan_cleanup(
+                p, fi._out_path(p, d, "_scan", fi.ext_for(fi._ext_format(p))),
+                whiten=bool(prm.get("whiten", True)),
+                despeckle=bool(prm.get("despeckle", True))), pr),
+            form_fields=[("whiten", "Whiten background", "check", True),
+                         ("despeckle", "Despeckle (clean dust)", "check", True)])
+
+    def remove_bg(self):
+        self._img_op("Remove background",
+            lambda paths, d, prm, pr: self._run_each(paths, lambda p: fi.remove_background(
+                p, fi._out_path(p, d, "_nobg", ".png"),
+                tolerance=int(prm.get("tolerance", 40))), pr),
+            form_fields=[("tolerance", "Colour tolerance (0-120)", "int", 40)])
+
+    def upscale_tool(self):
+        def work(paths, d, prm, pr):
+            f = float(prm.get("factor", 2) or 2)
+            return self._run_each(paths, lambda p: self._one(
+                fi.upscale([p], d, factor=f)), pr)
+        self._img_op("Upscale images", work,
+            form_fields=[("factor", "Scale factor", "combo", "2", ["2", "3", "4"])])
+
+    def crop_batch(self):
+        def work(paths, d, prm, pr):
+            l, t = float(prm.get("left", 0) or 0), float(prm.get("top", 0) or 0)
+            r, b = float(prm.get("right", 0) or 0), float(prm.get("bottom", 0) or 0)
+            return self._run_each(paths, lambda p: self._one(
+                fi.batch_crop([p], d, left=l, top=t, right=r, bottom=b)), pr)
+        self._img_op("Crop same margins", work,
+            form_fields=[("left", "Left %", "float", 0), ("top", "Top %", "float", 0),
+                         ("right", "Right %", "float", 0),
+                         ("bottom", "Bottom %", "float", 0)])
+
+    def filters_tool(self):
+        preset = self.filter_combo.get()
+        self._img_op("Apply filter",
+            lambda paths, d, prm, pr: fi.apply_filter(paths, d, preset=preset,
+                                                       progress=pr))
+
+    def social_export(self):
+        labels = [n for n, _w, _h in fi.SOCIAL_PRESETS]
+
+        def work(paths, d, prm, pr):
+            label = str(prm.get("preset", labels[0]))
+            size, tag = (1080, 1080), "social"
+            for name, w, h in fi.SOCIAL_PRESETS:
+                if name == label:
+                    size, tag = (w, h), "%dx%d" % (w, h)
+                    break
+            mode = "fit" if str(prm.get("mode", "fill")).startswith("fit") else "fill"
+            return self._run_each(paths, lambda p: self._one(
+                fi.social_export([p], d, size=size, mode=mode, label=tag)), pr)
+        self._img_op("Social media export", work,
+            form_fields=[("preset", "Target size", "combo", labels[0], labels),
+                         ("mode", "Mode", "combo", "fill (crop)",
+                          ["fill (crop)", "fit (pad)"])])
+
+    def collage_maker(self):
+        if len(self.images) < 2:
+            messagebox.showerror("Collage", "Add at least 2 images first.")
+            return
+        fields = [("cols", "Columns (0 = auto)", "int", 0),
+                  ("rows", "Rows (0 = auto)", "int", 0),
+                  ("cell", "Cell size (px)", "int", 600),
+                  ("spacing", "Spacing (px)", "int", 12),
+                  ("radius", "Corner radius (px)", "int", 0),
+                  ("bg", "Background (hex)", "text", "#ffffff")]
+        dlg = SimpleFormDialog(self.parent, "Make collage", fields)
+        if dlg.result is None:
+            return
+        out = filedialog.asksaveasfilename(title="Save collage", defaultextension=".jpg",
+            filetypes=[("JPEG", "*.jpg"), ("PNG", "*.png")], initialfile="collage.jpg")
+        if not out:
+            return
+        prm = dlg.result
+        imgs = list(self.images)
+
+        def done(r):
+            messagebox.showinfo("Collage", "Saved:\n%s" % r)
+            try:
+                os.startfile(os.path.dirname(os.path.abspath(r)))
+            except Exception:
+                pass
+        self.app.run_bg(lambda pr: fi.collage(imgs, out, cols=prm.get("cols", 0),
+            rows=prm.get("rows", 0), cell=prm.get("cell", 600),
+            spacing=prm.get("spacing", 12), bg=prm.get("bg", "#ffffff"),
+            radius=prm.get("radius", 0), progress=pr),
+            "Building collage…", on_done=done, maxval=len(imgs))
+
+    def exif_view(self):
+        sel = self.lb.curselection()
+        p = None
+        if sel and sel[0] < len(self.images):
+            p = self.images[sel[0]]
+        elif self.images:
+            p = self.images[0]
+        if not p:
+            messagebox.showerror("EXIF", "Add an image first.")
+            return
+        ExifDialog(self.parent, p)
+
+    def exif_remove_gps(self):
+        self._img_op("Remove GPS location",
+            lambda paths, d, prm, pr: self._run_each(paths, lambda p: fi.exif_remove_gps(
+                p, fi._out_path(p, d, "_nogps", fi.ext_for(fi._ext_format(p)))), pr))
+
+
+class ExifDialog:
+    """Read-only EXIF / metadata viewer."""
+
+    def __init__(self, parent, image_path):
+        self.top = ctk.CTkToplevel(parent)
+        self.top.title("EXIF - " + os.path.basename(image_path))
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.configure(fg_color=THEME["bg"])
+        card = modern_card(self.top)
+        card.pack(fill="both", expand=True, padx=14, pady=14)
+        ctk.CTkLabel(card, text="EXIF / metadata", font=FONT_BOLD,
+                     text_color=THEME["fg"]).pack(anchor="w", padx=16, pady=(14, 4))
+        box = ctk.CTkTextbox(card, width=520, height=420, fg_color=THEME["surface2"],
+                             text_color=THEME["fg"], font=FONT_SM)
+        box.pack(padx=16, pady=(0, 10))
+        tags = fi.exif_read(image_path)
+        if not tags:
+            tags = [("(no EXIF data found)", "")]
+        box.insert("1.0", "\n".join("%s: %s" % (k, v) for k, v in tags))
+        box.configure(state="disabled")
+        bf = ctk.CTkFrame(card, fg_color="transparent")
+        bf.pack(fill="x", padx=16, pady=(0, 14))
+        ghost_btn(bf, "Close", self.top.destroy, width=90).pack(side="right")
+        self.top.update_idletasks()
+        try:
+            self.top.geometry("+%d+%d" % (parent.winfo_rootx() + 80,
+                                          parent.winfo_rooty() + 60))
+        except Exception:
+            pass
+
 
 # ═══════════════════════ AUTOMATION (v4) ═══════════════════════
 class AutomationUI:
@@ -3832,7 +4768,7 @@ class AutomationUI:
                                                                          expand=True)
         ghost_btn(of, "Browse", self._pick_out, width=80).pack(side="left", padx=6)
         self.same_src_var = tk.BooleanVar(value=False)
-        dark_check(c, "Output next to source files (PDFSuite_Output subfolder)",
+        dark_check(c, "Output next to source files (PageDeck_Output subfolder)",
                    self.same_src_var).pack(anchor="w", pady=(6, 0))
         rrun = ctk.CTkFrame(c, fg_color="transparent")
         rrun.pack(fill="x", pady=(8, 0))
@@ -3871,7 +4807,7 @@ class AutomationUI:
 
         # ── scheduler ──
         c = self._card(right, "Scheduled tasks",
-                       "Daily / weekly runs via Windows task scheduler + PDFSuiteCLI")
+                       "Daily / weekly runs via Windows task scheduler + PageDeckCLI")
         self._r(c, "Schedule daily/weekly run…", self.schedule_task)
         self._r(c, "Delete scheduled task…", self.delete_task_ui)
 
@@ -3936,8 +4872,8 @@ class AutomationUI:
         self._r(c, "Save email settings", self.save_email)
 
         # ── CLI ──
-        c = self._card(right, "Command line companion", "PDFSuiteCLI.exe does the same jobs")
-        ex = 'PDFSuiteCLI.exe recipe -r "recipe.json" -d "C:\\Scans" -o "C:\\Out"'
+        c = self._card(right, "Command line companion", "PageDeckCLI.exe does the same jobs")
+        ex = 'PageDeckCLI.exe recipe -r "recipe.json" -d "C:\\Scans" -o "C:\\Out"'
         ctk.CTkLabel(c, text=ex, font=("Consolas", 10), text_color="#9ad0ff",
                      wraplength=380, justify="left").pack(anchor="w")
         ghost_btn(c, "Copy example command", self.copy_cli_example,
@@ -4178,7 +5114,7 @@ class AutomationUI:
         same = bool(self.same_src_var.get())
         out = None
         if same:
-            out = os.path.join(os.path.dirname(files[0]), "PDFSuite_Output")
+            out = os.path.join(os.path.dirname(files[0]), "PageDeck_Output")
             try:
                 os.makedirs(out, exist_ok=True)
             except OSError:
@@ -4291,7 +5227,7 @@ class AutomationUI:
     # ── scheduler ──
     def _cli_exe(self):
         if getattr(sys, "frozen", False):
-            exe = os.path.join(os.path.dirname(sys.executable), "PDFSuiteCLI.exe")
+            exe = os.path.join(os.path.dirname(sys.executable), "PageDeckCLI.exe")
             if os.path.exists(exe):
                 return exe
         return None
@@ -4414,7 +5350,7 @@ class AutomationUI:
 
     # ── CLI ──
     def copy_cli_example(self):
-        example = ('PDFSuiteCLI.exe recipe -r "%s" -d "C:\\Scans" -o "C:\\Out"'
+        example = ('PageDeckCLI.exe recipe -r "%s" -d "C:\\Scans" -o "C:\\Out"'
                    % (self.recipe_file or "recipe.json"))
         try:
             self.parent.clipboard_clear()
@@ -4523,7 +5459,7 @@ class UpdateDialog(ctk.CTkToplevel):
             return
         url = self.asset.get("url") or self.asset.get("browser_download_url")
         token = (self.app.settings or {}).get("github_token") or ""
-        name = self.asset.get("name") or "PDFSuitePro_Installer.exe"
+        name = self.asset.get("name") or "PageDeck_Installer.exe"
         total = int(self.asset.get("size") or 0)
         dest = os.path.join(tempfile.gettempdir(), name)
         self.update_btn.configure(state="disabled", text="Downloading…")
@@ -4580,7 +5516,7 @@ class UpdateDialog(ctk.CTkToplevel):
 
     def _install(self, path):
         if not messagebox.askyesno("Ready to install",
-                "PDF Suite Pro v%s has been downloaded.\n\n"
+                "PageDeck v%s has been downloaded.\n\n"
                 "Run the setup now? The application will close so the files "
                 "can be updated." % self.latest, parent=self):
             self.status.configure(text="Installer saved to: %s" % path)
@@ -4609,5 +5545,5 @@ if __name__ == "__main__":
         root.iconbitmap(resource_path("app_icon.ico"))
     except Exception:
         pass
-    app = PDFSuite(root)
+    app = PageDeck(root)
     root.mainloop()

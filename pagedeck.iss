@@ -1,8 +1,8 @@
-#define AppName "PDF Suite Pro"
-#define AppVersion "4.1"
+#define AppName "PageDeck"
+#define AppVersion "5.0"
 #define AppPublisher "AYUSH GUPTA"
 #define AppURL "https://github.com/learnerarchitecture-debug/PDFMERGER"
-#define SourceExe "dist\PDF Suite Pro.exe"
+#define SourceExe "dist\PageDeck.exe"
 
 [Setup]
 AppName={#AppName}
@@ -14,8 +14,8 @@ AppUpdatesURL={#AppURL}/issues
 DefaultDirName={pf}\{#AppName}
 DefaultGroupName={#AppName}
 SetupIconFile=app_icon.ico
-UninstallDisplayIcon={app}\PDF Suite Pro.exe
-OutputBaseFilename=PDFSuitePro_Installer
+UninstallDisplayIcon={app}\PageDeck.exe
+OutputBaseFilename=PageDeck_Installer
 OutputDir=.
 Compression=lzma
 SolidCompression=yes
@@ -31,21 +31,21 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\PDFSuiteCLI.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\PageDeckCLI.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"
 Source: "INSTALLATION.txt"; DestDir: "{app}"
 Source: "README.md"; DestDir: "{app}"
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\PDF Suite Pro.exe"
-Name: "{commondesktop}\{#AppName}"; Filename: "{app}\PDF Suite Pro.exe"
+Name: "{group}\{#AppName}"; Filename: "{app}\PageDeck.exe"
+Name: "{commondesktop}\{#AppName}"; Filename: "{app}\PageDeck.exe"
 
 [Run]
-Filename: "{app}\PDF Suite Pro.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\PageDeck.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [CustomMessages]
-english.VersionNotSupported="This application requires Windows 7 or later. Your current Windows version is not supported. Please use a supported Windows version (7, 8, 8.1, 10, or 11) to install PDF Suite Pro."
-russian.VersionNotSupported="Это приложение требует Windows 7 или более поздней версии. Ваша текущая версия Windows не поддерживается. Пожалуйста, используйте поддерживаемую версию Windows (7, 8, 8.1, 10 или 11) для установки PDF Suite Pro."
+english.VersionNotSupported="This application requires Windows 7 or later. Your current Windows version is not supported. Please use a supported Windows version (7, 8, 8.1, 10, or 11) to install PageDeck."
+russian.VersionNotSupported="Это приложение требует Windows 7 или более поздней версии. Ваша текущая версия Windows не поддерживается. Пожалуйста, используйте поддерживаемую версию Windows (7, 8, 8.1, 10 или 11) для установки PageDeck."
 
 [Code]
 function GetWindowsMajorMinor(var Major, Minor: Integer): Boolean;

@@ -1,25 +1,28 @@
-PDF Suite Pro — Quick Install
-=============================
+PageDeck — Quick Install
+========================
 
 Full details: INSTALLATION.txt
 
 WINDOWS (Installer)
 -------------------
-1. Download PDFSuitePro_Installer.exe (in this repository)
+1. Download PageDeck_Installer.exe (in this repository)
 2. Run the installer and follow the wizard
 3. Launch from Start Menu or desktop shortcut
 4. Uninstall via Windows "Apps & Features"
 
+Upgrading from "PDF Suite Pro" v4.x? Just run the installer — the old
+version is removed automatically and your settings carry over.
+
 WINDOWS (Portable — no install)
 -------------------------------
-Double-click: PDF Suite Pro.exe
+Double-click: PageDeck.exe
 
-Desktop shortcut: right-click PDF Suite Pro.exe → Create shortcut
+Desktop shortcut: right-click PageDeck.exe → Create shortcut
 Or run in PowerShell:
 
   $ws = New-Object -ComObject WScript.Shell
-  $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PDF Suite Pro.lnk")
-  $sc.TargetPath = "C:\full\path\to\PDF Suite Pro.exe"
+  $sc = $ws.CreateShortcut("$env:USERPROFILE\Desktop\PageDeck.lnk")
+  $sc.TargetPath = "C:\full\path\to\PageDeck.exe"
   $sc.Save()
 
 SUPPORTED WINDOWS VERSIONS
@@ -36,21 +39,20 @@ BUILD EXE
 ---------
 pip install -r requirements.txt
 pip install pyinstaller
-pyinstaller --onefile --noconsole --name "PDF Suite Pro" pdf_tool.py
-pyinstaller --onefile --console  --name "PDFSuiteCLI" pdf_cli.py
+pyinstaller --noconfirm --clean "PageDeck.spec"
+pyinstaller --onefile --console --noconfirm --name "PageDeckCLI" --icon app_icon.ico pdf_cli.py
 
-Output: dist/PDF Suite Pro.exe  and  dist/PDFSuiteCLI.exe
+Output: dist/PageDeck.exe  and  dist/PageDeckCLI.exe
 
 For a Windows 7–compatible build use Python 3.8 (32-bit):
   pip install PyMuPDF==1.23.26 Pillow==10.4.0 pyinstaller==5.13.2 tkinterdnd2 qrcode
-  pyinstaller --onefile --windowed --name "PDF Suite Pro" pdf_tool.py
 
 BUILD INSTALLER
 ---------------
-makensis pdfsuite_pro.nsi        (NSIS — recommended)
-Output: PDFSuitePro_Installer.exe
+makensis pagedeck.nsi        (NSIS — recommended)
+Output: PageDeck_Installer.exe
 
-Note: pdfsuite_pro.iss (Inno Setup) is an alternative installer script.
+Note: pagedeck.iss (Inno Setup) is an alternative installer script.
 
 ANDROID
 -------

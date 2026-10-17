@@ -123,7 +123,7 @@ def _img_resize(p, outdir, prm):
 
 
 def _img_watermark(p, outdir, prm):
-    res = fi.watermark_images([p], outdir, text=prm.get("text", "PDF Suite Pro"),
+    res = fi.watermark_images([p], outdir, text=prm.get("text", "PageDeck"),
                               opacity=prm.get("opacity", 0.55))
     return _res1(res)
 
@@ -154,6 +154,98 @@ def _rename(p, outdir, prm):
     res = fi.rename_batch([p], pattern=prm.get("pattern", "{name}_{n}"),
                           start=prm.get("start", 1), pad=prm.get("pad", 3))
     return _res1(res)
+
+
+# ── v5.0 operations ──
+def _pdf_ocr(p, outdir, prm):
+    return fp.ocr_pdf(p, _o(p, outdir, "_ocr"), lang=prm.get("lang", "eng"),
+                      dpi=prm.get("dpi", 200), mode="pdf")
+
+
+def _pdf_highlight(p, outdir, prm):
+    out, _n = fp.highlight_text(p, _o(p, outdir, "_highlight"), prm.get("phrase", ""))
+    return out
+
+
+def _pdf_replace(p, outdir, prm):
+    out, _n = fp.search_replace(p, _o(p, outdir, "_replaced"), prm.get("find", ""),
+                                prm.get("replace", ""),
+                                match_case=bool(prm.get("match_case")),
+                                whole_word=bool(prm.get("whole_word")))
+    return out
+
+
+def _pdf_typewriter(p, outdir, prm):
+    return fp.typewriter_text(p, _o(p, outdir, "_text"), prm.get("text", ""),
+                              max(0, int(prm.get("page", 1)) - 1),
+                              prm.get("x", 0.1), prm.get("y", 0.1),
+                              fontsize=prm.get("size", 12))
+
+
+def _pdf_attach(p, outdir, prm):
+    src = prm.get("file", "")
+    if not src or not os.path.isfile(src):
+        raise ValueError("Attachment file not found: %s" % src)
+    return fp.add_attachment(p, _o(p, outdir, "_attached"), src)
+
+
+def _pdf_split_keyword(p, outdir, prm):
+    outs = fp.split_by_keyword(p, outdir, prm.get("keyword", ""))
+    return outs[0] if outs else ""
+
+
+def _pdf_split_blank(p, outdir, prm):
+    outs = fp.split_at_blank_pages(p, outdir)
+    return outs[0] if outs else ""
+
+
+def _office_pdf(p, outdir, prm):
+    outs = fp.office_to_pdf([p], outdir)
+    return outs[0] if outs else ""
+
+
+def _img_scan(p, outdir, prm):
+    fmt = fi._ext_format(p)
+    out = fi._out_path(p, outdir, "_scan", fi.ext_for(fmt))
+    return fi.scan_cleanup(p, out, whiten=bool(prm.get("whiten", True)),
+                           despeckle=bool(prm.get("despeckle", True)))
+
+
+def _img_nobg(p, outdir, prm):
+    out = fi._out_path(p, outdir, "_nobg", ".png")
+    return fi.remove_background(p, out, tolerance=prm.get("tolerance", 40))
+
+
+def _img_social(p, outdir, prm):
+    label = prm.get("preset", "")
+    size, tag = (1080, 1080), "social"
+    for name, w, h in fi.SOCIAL_PRESETS:
+        if name == label:
+            size, tag = (w, h), "%dx%d" % (w, h)
+            break
+    res = fi.social_export([p], outdir, size=size, mode=prm.get("mode", "fill"), label=tag)
+    return _res1(res)
+
+
+def _img_filter(p, outdir, prm):
+    res = fi.apply_filter([p], outdir, preset=prm.get("preset", "B&W"))
+    return _res1(res)
+
+
+def _img_upscale(p, outdir, prm):
+    res = fi.upscale([p], outdir, factor=prm.get("factor", 2))
+    return _res1(res)
+
+
+def _img_crop_batch(p, outdir, prm):
+    res = fi.batch_crop([p], outdir, left=prm.get("left", 0), top=prm.get("top", 0),
+                        right=prm.get("right", 0), bottom=prm.get("bottom", 0))
+    return _res1(res)
+
+
+def _img_nogps(p, outdir, prm):
+    fmt = fi._ext_format(p)
+    return fi.exif_remove_gps(p, fi._out_path(p, outdir, "_nogps", fi.ext_for(fmt)))
 
 
 def _res1(results):
@@ -230,7 +322,7 @@ _reg("img_convert", "Convert image format", [
 _reg("img_resize", "Resize image (%)", [
     {"key": "percent", "label": "Percent", "type": "int", "default": 50}], _img_resize)
 _reg("img_watermark", "Watermark image", [
-    {"key": "text", "label": "Text", "type": "text", "default": "PDF Suite Pro"},
+    {"key": "text", "label": "Text", "type": "text", "default": "PageDeck"},
     {"key": "opacity", "label": "Opacity (0-1)", "type": "float", "default": 0.55}], _img_watermark)
 _reg("img_grayscale", "Image to grayscale", [], _img_grayscale)
 _reg("img_adjust", "Enhance image (light/contrast/sat)", [
@@ -243,6 +335,52 @@ _reg("rename", "Rename (pattern)", [
     {"key": "pattern", "label": "Pattern", "type": "text", "default": "{name}_{n}"},
     {"key": "start", "label": "Start at", "type": "int", "default": 1},
     {"key": "pad", "label": "Pad digits", "type": "int", "default": 3}], _rename)
+
+# ── v5.0 registrations ──
+_reg("pdf_ocr", "OCR - make searchable", [
+    {"key": "lang", "label": "Language(s)", "type": "text", "default": "eng"},
+    {"key": "dpi", "label": "DPI", "type": "int", "default": 200}], _pdf_ocr)
+_reg("pdf_highlight", "Highlight a phrase", [
+    {"key": "phrase", "label": "Phrase", "type": "text", "default": ""}], _pdf_highlight)
+_reg("pdf_replace", "Find and replace text", [
+    {"key": "find", "label": "Find", "type": "text", "default": ""},
+    {"key": "replace", "label": "Replace with", "type": "text", "default": ""},
+    {"key": "match_case", "label": "Match case", "type": "check", "default": False},
+    {"key": "whole_word", "label": "Whole words", "type": "check", "default": False}], _pdf_replace)
+_reg("pdf_typewriter", "Typewriter text on a page", [
+    {"key": "text", "label": "Text", "type": "text", "default": ""},
+    {"key": "page", "label": "Page number", "type": "int", "default": 1},
+    {"key": "x", "label": "X (0-1)", "type": "float", "default": 0.1},
+    {"key": "y", "label": "Y (0-1)", "type": "float", "default": 0.1},
+    {"key": "size", "label": "Font size", "type": "int", "default": 12}], _pdf_typewriter)
+_reg("pdf_attach", "Attach a file inside PDF", [
+    {"key": "file", "label": "File to attach", "type": "text", "default": ""}], _pdf_attach)
+_reg("pdf_split_keyword", "Split at keyword", [
+    {"key": "keyword", "label": "Keyword", "type": "text", "default": ""}], _pdf_split_keyword)
+_reg("pdf_split_blank", "Split at blank pages", [], _pdf_split_blank)
+_reg("office_pdf", "Word/Excel/PPT to PDF (LibreOffice)", [], _office_pdf)
+_reg("img_scan", "Scan cleanup (whiten / despeckle)", [
+    {"key": "whiten", "label": "Whiten", "type": "check", "default": True},
+    {"key": "despeckle", "label": "Despeckle", "type": "check", "default": True}], _img_scan)
+_reg("img_nobg", "Remove background", [
+    {"key": "tolerance", "label": "Tolerance (0-120)", "type": "int", "default": 40}], _img_nobg)
+_reg("img_social", "Social media export", [
+    {"key": "preset", "label": "Size", "type": "combo", "default": fi.SOCIAL_PRESETS[0][0],
+     "options": [n for n, _w, _h in fi.SOCIAL_PRESETS]},
+    {"key": "mode", "label": "Mode", "type": "combo", "default": "fill",
+     "options": ["fill", "fit"]}], _img_social)
+_reg("img_filter", "Apply filter / look", [
+    {"key": "preset", "label": "Filter", "type": "combo", "default": "B&W",
+     "options": list(fi.FILTERS)}], _img_filter)
+_reg("img_upscale", "Upscale image (2x - 4x)", [
+    {"key": "factor", "label": "Scale", "type": "combo", "default": "2",
+     "options": ["2", "3", "4"]}], _img_upscale)
+_reg("img_crop_batch", "Crop same margins (%)", [
+    {"key": "left", "label": "Left %", "type": "float", "default": 0},
+    {"key": "top", "label": "Top %", "type": "float", "default": 0},
+    {"key": "right", "label": "Right %", "type": "float", "default": 0},
+    {"key": "bottom", "label": "Bottom %", "type": "float", "default": 0}], _img_crop_batch)
+_reg("img_nogps", "Remove GPS location (EXIF)", [], _img_nogps)
 
 
 def ops_table():
@@ -309,7 +447,7 @@ def run_recipe(recipe, path, outdir, log=None):
                 step_out = outdir
             else:
                 if tmpdir is None:
-                    tmpdir = tempfile.mkdtemp(prefix="pdfsuite_")
+                    tmpdir = tempfile.mkdtemp(prefix="pagedeck_")
                 step_out = tmpdir
             cur = run_step(step, cur, step_out, log=log)
             if not cur:
@@ -369,7 +507,16 @@ def list_input_files(folder, exts):
 # ───────────────────────── settings ─────────────────────────
 def settings_dir():
     base = os.environ.get("APPDATA") or os.path.expanduser("~")
-    d = os.path.join(base, "PDFSuitePro")
+    d = os.path.join(base, "PageDeck")
+    old = os.path.join(base, "PDFSuitePro")
+    try:
+        if (not os.path.isfile(os.path.join(d, "settings.json"))
+                and os.path.isfile(os.path.join(old, "settings.json"))):
+            os.makedirs(d, exist_ok=True)
+            shutil.copy2(os.path.join(old, "settings.json"),
+                         os.path.join(d, "settings.json"))
+    except OSError:
+        pass
     try:
         os.makedirs(d, exist_ok=True)
     except OSError:
@@ -492,7 +639,7 @@ class Watcher(object):
             try:
                 body = "File: %s\nStatus: %s\nOutput: %s\n%s" % (
                     full, row["status"], row["output"], row["error"])
-                send_email(cfg, "[PDF Suite Pro] %s" % self.recipe_name, body)
+                send_email(cfg, "[PageDeck] %s" % self.recipe_name, body)
                 self._log("report emailed to %s" % cfg.get("to"))
             except Exception as e:
                 self._log("email failed: %s" % e)
@@ -547,7 +694,7 @@ def send_email(cfg, subject, body):
 # ───────────────────────── Windows task scheduler ─────────────────────────
 def create_task(name, exe, args, when="DAILY", time_str="18:00", weekday="MON"):
     tr = ('"%s"' % exe) if not args else ('"%s" %s' % (exe, args))
-    cmd = ["schtasks", "/Create", "/F", "/TN", "PDF Suite Pro\\" + name,
+    cmd = ["schtasks", "/Create", "/F", "/TN", "PageDeck\\" + name,
            "/TR", tr, "/SC", when, "/ST", time_str]
     if when == "WEEKLY":
         cmd += ["/D", weekday]
@@ -559,6 +706,6 @@ def create_task(name, exe, args, when="DAILY", time_str="18:00", weekday="MON"):
 
 
 def delete_task(name):
-    subprocess.run(["schtasks", "/Delete", "/F", "/TN", "PDF Suite Pro\\" + name],
+    subprocess.run(["schtasks", "/Delete", "/F", "/TN", "PageDeck\\" + name],
                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return True

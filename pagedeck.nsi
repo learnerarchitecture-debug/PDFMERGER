@@ -1,20 +1,21 @@
-; PDF Suite Pro - NSIS Installer Script
-; Compile with: makensis pdfsuite_pro.nsi
+; PageDeck - NSIS Installer Script
+; Compile with: makensis pagedeck.nsi
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "x64.nsh"
 
 ; Application info
-!define APP_NAME "PDF Suite Pro"
-!define APP_VERSION "4.1"
+!define APP_NAME "PageDeck"
+!define APP_VERSION "5.0"
 !define APP_PUBLISHER "AYUSH GUPTA"
 !define APP_URL "https://github.com/learnerarchitecture-debug/PDFMERGER"
-!define APP_EXE "PDF Suite Pro.exe"
-!define APP_CLI "PDFSuiteCLI.exe"
+!define APP_EXE "PageDeck.exe"
+!define APP_CLI "PageDeckCLI.exe"
+!define OLD_NAME "PDF Suite Pro"
 
 ; Output
-OutFile "PDFSuitePro_Installer.exe"
+OutFile "PageDeck_Installer.exe"
 Icon "app_icon.ico"
 InstallDir "$PROGRAMFILES\${APP_NAME}"
 InstallDirRegKey HKLM "Software\${APP_NAME}" "Install_Dir"
@@ -74,6 +75,25 @@ Function GetWindowsVersion
     Pop $R0
 FunctionEnd
 
+; Silently remove a previous "PDF Suite Pro" (v4.x) installation if present,
+; so users upgrading from the old name do not end up with two apps installed.
+Function RemoveOldVersion
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${OLD_NAME}" "InstallLocation"
+    ${If} $R0 == ""
+        StrCpy $R0 "$PROGRAMFILES\${OLD_NAME}"
+    ${EndIf}
+    ${If} ${FileExists} "$R0\${OLD_NAME}.exe"
+    ${OrIf} ${FileExists} "$R0\uninstall.exe"
+    ${OrIf} ${FileExists} "$R0\uninstall.bat"
+        RMDir /r "$R0"
+    ${EndIf}
+    Delete "$DESKTOP\${OLD_NAME}.lnk"
+    Delete "$SMPROGRAMS\${OLD_NAME}\${OLD_NAME}.lnk"
+    RMDir "$SMPROGRAMS\${OLD_NAME}"
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${OLD_NAME}"
+    DeleteRegKey HKLM "Software\${OLD_NAME}"
+FunctionEnd
+
 ; Check Windows version on init
 Function .onInit
     Call GetWindowsVersion
@@ -87,6 +107,7 @@ Function .onInit
             Abort
         ${EndIf}
     ${EndIf}
+    Call RemoveOldVersion
 FunctionEnd
 
 ; Install
@@ -152,5 +173,5 @@ Section "Uninstall"
 SectionEnd
 
 ; Language strings
-LangString LICENSE_English ${LANG_ENGLISH} "PDF Suite Pro - MIT License$\n$\nCopyright (c) 2024 AYUSH GUPTA$\n$\nPermission is hereby granted..."
-LangString LICENSE_Russian ${LANG_RUSSIAN} "PDF Suite Pro - MIT License$\n$\nCopyright (c) 2024 AYUSH GUPTA$\n$\nДанная лицензия предоставляет..."
+LangString LICENSE_English ${LANG_ENGLISH} "PageDeck - MIT License$\n$\nCopyright (c) 2024 AYUSH GUPTA$\n$\nPermission is hereby granted..."
+LangString LICENSE_Russian ${LANG_RUSSIAN} "PageDeck - MIT License$\n$\nCopyright (c) 2024 AYUSH GUPTA$\n$\nДанная лицензия предоставляет..."

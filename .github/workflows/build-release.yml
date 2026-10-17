@@ -27,30 +27,30 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Build application exe
-        run: python -m PyInstaller --noconfirm --clean "PDF Suite Pro.spec"
+        run: python -m PyInstaller --noconfirm --clean "PageDeck.spec"
 
       - name: Build CLI exe
-        run: python -m PyInstaller --onefile --console --noconfirm --name "PDFSuiteCLI" --icon app_icon.ico pdf_cli.py
+        run: python -m PyInstaller --onefile --console --noconfirm --name "PageDeckCLI" --icon app_icon.ico pdf_cli.py
 
       - name: Build installer (NSIS)
         run: |
           choco install nsis -y
-          & "C:\Program Files (x86)\NSIS\makensis.exe" pdfsuite_pro.nsi
+          & "C:\Program Files (x86)\NSIS\makensis.exe" pagedeck.nsi
         shell: pwsh
 
       - name: Smoke test CLI
         run: |
-          dist\PDFSuiteCLI.exe ops
+          dist\PageDeckCLI.exe ops
         shell: cmd
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PDFSuitePro-v4-Windows
+          name: PageDeck-v5-Windows
           path: |
-            dist/PDF Suite Pro.exe
-            dist/PDFSuiteCLI.exe
-            PDFSuitePro_Installer.exe
+            dist/PageDeck.exe
+            dist/PageDeckCLI.exe
+            PageDeck_Installer.exe
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -58,6 +58,6 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            dist/PDF Suite Pro.exe
-            dist/PDFSuiteCLI.exe
-            PDFSuitePro_Installer.exe
+            dist/PageDeck.exe
+            dist/PageDeckCLI.exe
+            PageDeck_Installer.exe

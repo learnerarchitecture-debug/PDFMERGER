@@ -1,4 +1,4 @@
-"""Generate the PDF Suite Pro application icon (app_icon.ico).
+"""Generate the PageDeck application icon (app_icon.ico).
 
 Modern flat design: rounded-square with the app's indigo -> violet gradient,
 a white document with a folded corner and indigo text lines.

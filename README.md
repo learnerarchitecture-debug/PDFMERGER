@@ -1,151 +1,216 @@
-# PDF Suite Pro
+# PageDeck
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v4.1 — auto-update built in · 60+ tools in 5 tabs
+**Version:** v5.0 — 100+ tools in 6 tabs · auto-update built in
 
-A full-featured PDF & image toolkit for **Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI.
-Merge, split, sign, redact, compress, convert, watermark — plus a full **Image Tools** suite and an
-**Automation** tab with recipes, watch folders, scheduled runs and a command-line companion
-(`PDFSuiteCLI.exe`). Portable or installed.
+PageDeck (formerly *PDF Suite Pro*) is a full-featured PDF & image toolkit for
+**Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI. Merge, edit, sign, redact,
+compress, convert, clean up scans — plus a full **Image editor suite** and an
+**Automation** tab with recipes, watch folders, scheduled runs and a command-line
+companion (`PageDeckCLI.exe`). Portable or installed.
+
+## What's New in v5.0
+
+- **New name — PageDeck.** Everything was renamed: `PageDeck.exe`, `PageDeckCLI.exe`,
+  `PageDeck_Installer.exe`. Upgrading is automatic — the installer removes a previous
+  "PDF Suite Pro" installation, and your settings, signatures, recent files and
+  automation recipes carry over on first launch.
+- **New Home tab** — quick actions for the 8 most used tools, recent files and a
+  rate & review / about / update-check panel.
+- **Reorganized into 6 tabs** — **Home · Organize · Edit PDF · Convert & Secure ·
+  Images · Automation**, with Organize split into *Merge files* and *Pages & Split*
+  sub-tabs. Every tool now lives under a clear category.
+- **PDF editing is here** — typewriter text, fill form fields, highlight phrases,
+  find & replace text, and **draw redaction areas** directly on the pages.
+- **Smart split** — split every N pages, at a keyword, at blank separator pages, or
+  even/odd — on top of the classic split tools.
+- **OCR** — make scans searchable (needs free Tesseract; PageDeck finds it
+  automatically and links you to the download if it's missing).
+- **Word / Excel / PPT → PDF** — via LibreOffice (auto-detected, same guidance).
+- **PDF attachments** — list, add and extract files embedded inside a PDF.
+- **Image clean-up tools** — scan cleanup (straighten + whiten + despeckle),
+  background remover, 2x–4x upscale, batch crop with the same margins.
+- **Image looks & sizes** — one-click filters (B&W · Warm · Cool · Vintage ·
+  Vignette · Clarity), social-media export presets (Instagram, Story/Reels,
+  YouTube, Facebook, X, WhatsApp, LinkedIn) and a **collage maker**.
+- **Image privacy** — EXIF viewer and one-click *remove GPS location*.
+- **Automation grew to 40+ recipe operations** including all of the above.
+- **`PageDeckCLI.exe`** learned 17 new commands (OCR, replace, highlight,
+  typewriter, attach, smart splits, image clean-up & more).
 
 ## What's New in v4.1
 
-- **Modern app icon** — new gradient document icon on the desktop shortcut, taskbar,
+- **Modern app icon** — gradient document icon on the desktop shortcut, taskbar,
   title bar and the installer
-- **Built-in auto-updater** — the app silently checks GitHub for new versions at startup
-  (Help → Check for Updates for a manual check), shows the release notes, **downloads the
-  installer for you and runs it** — no manual downloading
-- **"Don't remind me about this version"** option in the update dialog
-- **Private-repo support** — update checks accept a GitHub access token
-  (**Help → Update settings…**), stored only on this computer
-
-## What's New in v4.0
-
-- **Reorganized into 5 tabs** — Merge · Split & Edit · PDF Tools · Image Tools · Automation
-- **PDF Tools tab** — watermark, header/footer & page numbers, Bates numbering, QR stamps,
-  signature studio with click-to-place signing, crop/normalize/trim, N-up, split by size,
-  compress-to-target, compare, repair, sanitize, metadata editor, bookmark editor + auto-generate,
-  auto-redact patterns (email/phone/card/Aadhaar/PAN/IFSC), mail merge, print
-- **Image Tools tab** — compress, convert (JPEG/PNG/WEBP/BMP/TIFF/GIF), resize, rotate/flip,
-  grayscale, adjust (brightness/contrast/saturation/sharpness), trim borders, strip EXIF,
-  watermark, add border/frame, batch rename, images → PDF, PDF → images, ICO converter
-- **Automation tab** — build **recipes** (chains of steps), run them on files/folders,
-  **watch folders** that process new files automatically, **scheduled tasks** via Windows Task
-  Scheduler, **CSV mail merge**, optional **email reports**, and a log + CSV report after every run
-- **Drag & drop** files straight onto the window (PDFs go to Merge, images to Image Tools)
-- **Keyboard shortcuts** — Ctrl+O open · Ctrl+M add to merge · Ctrl+S save · Ctrl+P print · Ctrl+F search
-- **`PDFSuiteCLI.exe`** — command-line companion for scripting & scheduled runs
-- **Update checker** — Help → Check for Updates (GitHub releases)
+- **Built-in auto-updater** — checks GitHub silently at startup (Help → Check for
+  Updates for a manual check), shows release notes, **downloads the installer and
+  runs it** — no manual downloading
+- **"Don't remind me about this version"** option · **private-repo support** with a
+  GitHub access token (Help → Update settings…), stored only on this computer
 
 ## Quick Start
 
 | Option | Action |
 |--------|--------|
-| **Installer (recommended)** | Download `PDFSuitePro_Installer.exe` → run the wizard → launch from desktop/Start Menu |
-| **Portable** | Download `PDF Suite Pro.exe` → double-click, no installation required |
+| **Installer (recommended)** | Download `PageDeck_Installer.exe` → run the wizard → launch from desktop/Start Menu |
+| **Portable** | Download `PageDeck.exe` → double-click, no installation required |
 | **Script installer** | Run `install.bat` as Administrator (if you built the exe yourself) |
 
-The wizard installs to `C:\Program Files\PDF Suite Pro`, creates desktop and Start Menu shortcuts,
-registers an uninstaller in **Apps & Features**, and can launch the app when finished.
+The wizard installs to `C:\Program Files\PageDeck`, creates desktop and Start Menu
+shortcuts, registers an uninstaller in **Apps & Features**, and can launch the app
+when finished.
 
-**Updating:** the app checks GitHub for new versions automatically (or use
-**Help → Check for Updates**) and can download and run the installer for you.
-The repository is private, so first add a GitHub access token via
+**Updating:** PageDeck checks GitHub for new versions automatically (or use
+**Help → Check for Updates**, or the Home tab) and can download and run the
+installer for you. The repository is private, so first add a GitHub access token via
 **Help → Update settings…** (see "Publishing an update" below).
 
-## The Five Tabs
+## The Six Tabs
 
-### 1. Merge
-- Standard merging with per-file page ranges · alternate (interleave) merge
-- **Order = the list order** — drag rows or use Move Up / Down / Top / Bottom
-- **Right-click a row** — Remove · Duplicate · Move to top/bottom · Open file location
-- Insert PDF at a position · add cover page · duplicate entries
-- Password protect the result · compression · threaded (UI stays responsive)
+### 1. Home
+- **Quick actions** — one-click Compress PDF · Merge PDFs · Images → PDF ·
+  PDF → Images · OCR scan · Clean document photo · Remove background ·
+  Social media export
+- **Recent files** — double-click to add to the merge list · open folder · clear
+- **More** — Rate & Review · About PageDeck · Check for updates · jump to Automation
 
-### 2. Split & Edit
-- Split every page · extract range · split by bookmarks · split by page count · even/odd pages
-- Thumbnail view with **drag-to-reorder pages** · rotate · delete · insert blank · duplicate
-- Move page Up/Down/Top/Bottom · mirror/flip · to grayscale (new file or in-place)
-- **Undo / Redo** for all page actions
-- **Search text** (background thread) with thumbnail highlighting
-- Extract all images or text · Save As with modifications · Print
+### 2. Organize
+**Merge files** — standard merging with per-file page ranges · alternate
+(interleave) merge · **order = the list order** (drag rows or Move Up/Down/Top/Bottom) ·
+right-click a row to remove/duplicate/reveal · insert PDF at a position · cover page ·
+password protect the result · compression · threaded (the UI stays responsive)
 
-### 3. PDF Tools
-- **Sign & stamps** — Sign PDF (text block with signer name & date) · Signature studio
-  (draw or type → transparent PNG, reusable) · click-to-place signing preview · QR stamps ·
-  text watermark (tiled or single) · header/footer & `{page} / {total}` numbering · Bates numbering
-- **Organize & pages** — normalize page size (A4/Letter) · auto-trim white margins · crop margins
-  (mm) · N-up (pages per sheet) · split by size (MB) · print
-- **Compress & optimize** — 4 lossless levels · **smart compress-to-target size** (e.g. "must fit 5 MB")
-- **Convert & extract** — PDF → images at chosen DPI · extract text · extract images · grayscale
-- **Compare & repair** — visual compare of two PDFs (text diff per page) · repair/rebuild ·
-  sanitize (strip JavaScript & embedded files)
-- **Security & redaction** — redact text · **auto-redact patterns** (email, phone, card, Aadhaar,
-  PAN, IFSC + custom regex) · password protect (AES-256) · remove password · metadata editor
-- **Bookmarks** — full bookmark editor (add/edit/delete/demote) · auto-generate from headings
-- **Miscellaneous** — add page numbers · flatten annotations · clone open PDF ×2 · rate & review
+**Pages & Split** — thumbnail view with **drag-to-reorder pages** · rotate · delete ·
+insert blank · duplicate · move page Up/Down/Top/Bottom · mirror/flip · grayscale
+(new file or in-place) · **Undo / Redo** for all page actions · **search text** with
+thumbnail highlighting · extract all images or text · Save As · print, plus:
+- Split every page · extract range · split by bookmarks · even/odd
+- **Smart split** — every N pages · at a keyword · at blank pages · even-odd
 
-### 4. Image Tools
+### 3. Edit PDF
+- **Sign & stamps** — Sign PDF (text block with signer name & date) · Signature
+  studio (draw or type → transparent PNG, reusable) · click-to-place signing
+  preview · QR stamps · text watermark (tiled or single) · header/footer &
+  `{page} / {total}` numbering · Bates numbering
+- **Mark up & find** — **Typewriter** (add text anywhere) · **Fill form fields** ·
+  **Highlight a phrase** · **Find & replace text** (retypes at the same spot)
+- **Redaction & privacy** — redact text · **auto-redact patterns** (email, phone,
+  card, Aadhaar, PAN, IFSC + custom regex) · **draw redaction areas on pages** ·
+  metadata editor · remove metadata
+- **Bookmarks** — full bookmark editor (add/edit/delete/demote) · auto-generate
+  from headings
+- **Extras** — add page numbers · flatten annotations · clone open PDF ×2
+- **Organize & pages** (shared) — normalize page size (A4/Letter) · auto-trim white
+  margins · crop margins (mm) · N-up (pages per sheet) · print
+
+### 4. Convert & Secure
+- **Compress & optimize** — 4 lossless levels · **smart compress-to-target size**
+  (e.g. "must fit 5 MB") · split by size (MB)
+- **Convert & extract** — PDF → images at chosen DPI · extract text · extract
+  images · convert to grayscale · **add attachment inside PDF** · **extract
+  attachments**
+- **OCR & Office** — **OCR scan → searchable PDF** (Tesseract) · **Word / Excel /
+  PPT → PDF** (LibreOffice)
+- **Security** — password protect (AES-256) · remove password · sanitize (strip
+  JavaScript & embedded files)
+- **Compare & repair** — visual compare of two PDFs (text diff per page) ·
+  repair/rebuild
+
+### 5. Images
 - **Works on a list** — Add images · Add folder · remove/clear
 - **Compress & convert** — JPEG compression with quality slider · convert to
   JPEG/PNG/WEBP/BMP/TIFF/GIF · create `.ICO` icons
-- **Resize & transform** — resize by percent or exact width/height · rotate 90/-90/180 ·
-  flip horizontal/vertical · grayscale
-- **Enhance & filters** — brightness · contrast · saturation · sharpness sliders ·
-  auto-trim borders · strip EXIF & metadata (with auto-rotate) · add border/frame (width + colour)
+- **Resize & transform** — resize by percent or exact width/height · rotate
+  90/-90/180 · flip horizontal/vertical · grayscale
+- **Clean up & fix** — scan cleanup (straighten + whiten + despeckle) · remove
+  background (transparent PNG) · upscale 2x–4x · crop the same margins (%)
+- **Enhance & filters** — brightness · contrast · saturation · sharpness ·
+  auto-trim borders · strip EXIF & metadata · add border/frame
 - **Watermark images** — text watermark, 7 positions, opacity slider
-- **Create PDF / export** — images → single PDF (fit image / A4 / Letter) · PDF → images at DPI
-- **Batch rename** — pattern placeholders `{name}` `{n}` `{date}`, start number, zero-padding,
-  Preview before renaming in place
+- **Filters & looks** — B&W · Warm · Cool · Vintage · Vignette · Clarity, applied
+  to the whole list in one click
+- **Social & collage** — social-media export presets (Instagram post/portrait,
+  Story/Reels, YouTube thumbnail, Facebook cover, X/Twitter, WhatsApp status,
+  LinkedIn) · collage maker (grid, spacing, rounded corners, background colour)
+- **EXIF & privacy** — view EXIF of the selected image · remove GPS location
+- **Create PDF / export** — images → single PDF (fit / A4 / Letter) · PDF → images
+- **Batch rename** — placeholders `{name}` `{n}` `{date}`, start number,
+  zero-padding, preview before renaming in place
 
-### 5. Automation
-- **Recipes** — a recipe is a JSON list of steps applied to every input file. New / Load / Save as
-  / Remove. Steps: 20+ PDF & image operations (see list below) with an Edit params dialog
-- **Run** — on selected files or a whole folder; progress dialog; live log; CSV report
-  (`automation_report.csv`) in the output folder; option "output next to source"
-- **Watch folders** — add folders to watch; when a new PDF/image appears the current recipe runs
-  automatically; processed files are moved aside or deleted (optional); all from a background thread
-- **Scheduled tasks** — create/delete **Windows Task Scheduler** jobs (daily/weekly) that run a
-  saved recipe through `PDFSuiteCLI.exe`
-- **CSV mail merge** — fill a template PDF per CSV row: form-field names or `{{column}}` /
-  `<<column>>` placeholders
+### 6. Automation
+- **Recipes** — a recipe is a JSON list of steps applied to every input file. New /
+  Load / Save as / Remove. **40+ PDF & image operations** with an Edit-params dialog
+- **Run** — on selected files or a whole folder; progress dialog; live log; CSV
+  report (`automation_report.csv`) in the output folder; optional "output next to
+  source"
+- **Watch folders** — when a new PDF/image appears the current recipe runs
+  automatically in a background thread; processed files are moved aside or deleted
+- **Scheduled tasks** — create/delete **Windows Task Scheduler** jobs (daily/weekly)
+  that run a saved recipe through `PageDeckCLI.exe`
+- **CSV mail merge** — fill a template PDF per CSV row: form-field names or
+  `{{column}}` / `<<column>>` placeholders
 - **Email reports** — optionally send a report by SMTP after each watched file
 - **Command line companion** — copy-pasteable CLI examples right in the tab
 
-Recipe operations: Compress PDF · Compress to target size · PDF to grayscale · Add text watermark ·
-Header/footer · Bates numbering · Normalize page size · Pages per sheet · Auto-trim white margins ·
-Password protect · Remove password · Auto-redact patterns · Sanitize · Repair/rebuild ·
-PDF → images · Split by size · Compress image · Convert image format · Resize image ·
-Watermark image · Image to grayscale · Enhance image · Strip EXIF · Convert to icon · Rename.
+Recipe operations: Compress PDF · Compress to target size · PDF to grayscale ·
+Text watermark · Header/footer · Bates numbering · Normalize page size · Pages per
+sheet · Auto-trim white margins · Password protect · Remove password · Auto-redact
+patterns · Sanitize · Repair/rebuild · PDF → images · Split by size · **Split at
+keyword** · **Split at blank pages** · **OCR scan** · **Highlight phrase** ·
+**Find & replace** · **Typewriter text** · **Attach file** · **Office → PDF** ·
+Compress image · Convert image format · Resize image · Watermark image · Image to
+grayscale · Enhance image · Strip EXIF · Convert to icon · Rename · **Scan
+cleanup** · **Remove background** · **Social export** · **Filter/look** ·
+**Upscale** · **Batch crop** · **Remove GPS**.
 
-## Command Line (PDFSuiteCLI.exe)
+## Optional external tools
+
+PageDeck detects these automatically and shows a friendly message with the
+download page if a feature needs one:
+
+| Feature | Needs | Get it |
+|---------|-------|--------|
+| OCR scan → searchable PDF | **Tesseract OCR** | github.com/UB-Mannheim/tesseract (Windows installer) |
+| Word / Excel / PPT → PDF | **LibreOffice** | libreoffice.org (any recent version) |
+
+Everything else works out of the box — no runtime dependencies.
+
+## Command Line (PageDeckCLI.exe)
 
 ```text
-PDFSuiteCLI.exe <command> [options]
+PageDeckCLI.exe <command> [options]
 
 PDFs:       merge · compress · grayscale · protect · unlock · watermark · headerfooter ·
             bates · normalize · nup · trim · crop · redact · sanitize · repair ·
-            split-size · metadata · bookmarks · sign · qr · pdf2img · img2pdf
+            split-size · metadata · bookmarks · sign · qr · pdf2img · img2pdf ·
+            ocr · office2pdf · replace · highlight · typewriter · attach ·
+            extract-attach · split-keyword · split-blank
 Images:     img-compress · img-convert · img-resize · img-grayscale · img-watermark ·
-            img-adjust · img-exif · img-border · img-ico · img-trim · img-rename
+            img-adjust · img-exif · img-border · img-ico · img-trim · img-rename ·
+            img-scan · img-nobg · img-upscale · img-filter · img-social ·
+            img-collage · img-crop · img-nogps
 Automation: recipe · watch · schedule · ops
 ```
 
 Examples:
 
 ```bat
-PDFSuiteCLI.exe merge a.pdf b.pdf -o merged.pdf
-PDFSuiteCLI.exe compress big.pdf --target 5
-PDFSuiteCLI.exe compress big.pdf --level high -o small.pdf
-PDFSuiteCLI.exe watermark contract.pdf --text "CONFIDENTIAL" --tiled
-PDFSuiteCLI.exe redact scan.pdf --patterns emails,phones,aadhaar
-PDFSuiteCLI.exe img-compress *.jpg --quality 55
-PDFSuiteCLI.exe img2pdf scan1.png scan2.png -o scan.pdf --page A4
-PDFSuiteCLI.exe recipe -r myrecipe.json -d "C:\Scans" -o "C:\Out"
-PDFSuiteCLI.exe watch -d "C:\Scans" -r myrecipe.json -o "C:\Out" --interval 10
-PDFSuiteCLI.exe schedule --name NightRun -r myrecipe.json -d "C:\Scans" -o "C:\Out" --time 23:00
-PDFSuiteCLI.exe ops
+PageDeckCLI.exe merge a.pdf b.pdf -o merged.pdf
+PageDeckCLI.exe compress big.pdf --target 5
+PageDeckCLI.exe watermark contract.pdf --text "CONFIDENTIAL" --tiled
+PageDeckCLI.exe redact scan.pdf --patterns emails,phones,aadhaar
+PageDeckCLI.exe ocr scan.pdf --lang eng
+PageDeckCLI.exe replace invoice.pdf --find "Draft" --replace "Final"
+PageDeckCLI.exe highlight notes.pdf --phrase "ACTION ITEM"
+PageDeckCLI.exe split-keyword binder.pdf --keyword "SECTION"
+PageDeckCLI.exe img-scan photo.jpg
+PageDeckCLI.exe img-social *.jpg --preset "Instagram post"
+PageDeckCLI.exe img2pdf scan1.png scan2.png -o scan.pdf --page A4
+PageDeckCLI.exe recipe -r myrecipe.json -d "C:\Scans" -o "C:\Out"
+PageDeckCLI.exe watch -d "C:\Scans" -r myrecipe.json -o "C:\Out" --interval 10
+PageDeckCLI.exe schedule --name NightRun -r myrecipe.json -d "C:\Scans" -o "C:\Out" --time 23:00
+PageDeckCLI.exe ops
 ```
 
 ## Windows Compatibility
@@ -164,11 +229,11 @@ python pdf_tool.py                 # run from source
 Build the executables (PyInstaller):
 
 ```bash
-pyinstaller --noconfirm --clean "PDF Suite Pro.spec"
-pyinstaller --onefile --console --noconfirm --name "PDFSuiteCLI" --icon app_icon.ico pdf_cli.py
+pyinstaller --noconfirm --clean "PageDeck.spec"
+pyinstaller --onefile --console --noconfirm --name "PageDeckCLI" --icon app_icon.ico pdf_cli.py
 ```
 
-Output: `dist/PDF Suite Pro.exe` and `dist/PDFSuiteCLI.exe`
+Output: `dist/PageDeck.exe` and `dist/PageDeckCLI.exe`
 
 For a **Windows 7–compatible** build use Python 3.8 (32-bit):
 
@@ -179,40 +244,42 @@ pip install PyMuPDF==1.23.26 Pillow==10.4.0 pyinstaller==5.13.2 tkinterdnd2 qrco
 Build the installer (NSIS):
 
 ```bash
-makensis pdfsuite_pro.nsi
+makensis pagedeck.nsi
 ```
 
-Output: `PDFSuitePro_Installer.exe`
+Output: `PageDeck_Installer.exe`
 
 ### Publishing an update (this is what the auto-updater sees)
 
-1. Bump `APP_VERSION` in `pdf_tool.py` (e.g. `"4.2"`), commit and push.
-2. Create and push a tag: `git tag v4.2` then `git push origin v4.2`.
-3. GitHub Actions (`.github/workflows/build-release.yml`) builds the app, the CLI and the
-   installer and attaches all three to a new **Release** for that tag.
-4. Installed copies of the app find the release on their next startup check and offer to
-   download and install it (or check manually via **Help → Check for Updates**).
+1. Bump `APP_VERSION` in `pdf_tool.py` (e.g. `"5.1"`), commit and push.
+2. Create and push a tag: `git tag v5.1` then `git push origin v5.1`.
+3. GitHub Actions (`.github/workflows/build-release.yml`) builds the app, the CLI and
+   the installer and attaches all three to a new **Release** for that tag.
+4. Installed copies of the app find the release on their next startup check and offer
+   to download and install it (or check manually via **Help → Check for Updates**).
 
-Because this repository is private, machines that should auto-update need a GitHub token
-with `repo` scope: **Help → Update settings…** in the app (create the token at github.com →
-Settings → Developer settings → Personal access tokens). The token is stored only in the
-app's settings file on that computer.
+Because this repository is private, machines that should auto-update need a GitHub
+token with `repo` scope: **Help → Update settings…** in the app (create the token at
+github.com → Settings → Developer settings → Personal access tokens). The token is
+stored only in the app's settings file on that computer.
 
 ## Project Structure
 
 ```
-├── pdf_tool.py                # Main GUI application (customtkinter, 5 tabs)
-├── pdf_cli.py                 # Command-line companion → PDFSuiteCLI.exe
+├── pdf_tool.py                # Main GUI application (customtkinter, 6 tabs)
+├── pdf_cli.py                 # Command-line companion → PageDeckCLI.exe
 ├── features_pdf.py            # PDF engine (merge, split, sign, redact, compress, …)
 ├── features_image.py          # Image engine (compress, convert, resize, watermark, …)
 ├── automation.py              # Recipes, batch runner, watcher, scheduler, mail merge, SMTP
 ├── app_icon.ico               # Application icon (desktop / taskbar / installer)
 ├── make_icon.py               # Icon generator script
-├── PDF Suite Pro.exe          # Pre-built portable executable (32-bit)
-├── PDFSuiteCLI.exe            # Pre-built command-line executable
-├── PDFSuitePro_Installer.exe  # Setup wizard (built with NSIS)
-├── pdfsuite_pro.nsi           # NSIS installer script
-├── pdfsuite_pro.iss           # Inno Setup installer script (alternative)
+├── PageDeck.exe               # Pre-built portable executable (32-bit)
+├── PageDeckCLI.exe            # Pre-built command-line executable
+├── PageDeck_Installer.exe     # Setup wizard (built with NSIS)
+├── PageDeck.spec              # PyInstaller spec (app)
+├── PageDeckCLI.spec           # PyInstaller spec (CLI)
+├── pagedeck.nsi               # NSIS installer script
+├── pagedeck.iss               # Inno Setup installer script (alternative)
 ├── install.bat                # Simple batch installer script
 ├── requirements.txt           # Python dependencies
 ├── INSTALLATION.txt           # Step-by-step installation guide

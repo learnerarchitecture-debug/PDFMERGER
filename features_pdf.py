@@ -1,5 +1,5 @@
 """PDF feature engine - pure logic, no UI imports (used by app + CLI)."""
-import os, re, io, csv, tempfile, difflib
+import os, re, io, csv, tempfile, difflib, shutil, subprocess
 from datetime import datetime
 import fitz
 
@@ -600,7 +600,7 @@ def remove_metadata(path, out):
     doc = fitz.open(path)
     try:
         doc.set_metadata({"title": "", "author": "", "subject": "", "keywords": "",
-                          "creator": "PDF Suite Pro", "producer": "PDF Suite Pro"})
+                          "creator": "PageDeck", "producer": "PageDeck"})
         _save(doc, out, True)
         return out
     finally:
@@ -874,4 +874,525 @@ def mail_merge(template, csv_path, outdir, progress=None, log=None):
                 progress(ri + 1, total)
         finally:
             doc.close()
+    return outs
+
+
+# ═══════════════════ v5.0 additions ═══════════════════
+
+def _no_window_flags():
+    return 0x08000000 if os.name == "nt" else 0
+
+
+def _page_spans(page):
+    """[(rect, fontsize, text)] for picking replacement font sizes."""
+    spans = []
+    try:
+        d = page.get_text("dict")
+        for b in d.get("blocks", []):
+            for l in b.get("lines", []):
+                for s in l.get("spans", []):
+                    t = s.get("text", "")
+                    if t.strip():
+                        spans.append((fitz.Rect(s["bbox"]), float(s.get("size") or 10), t))
+    except Exception:
+        pass
+    return spans
+
+
+def _pick_fontsize(spans, rect, default=10.0):
+    best, best_area = None, 0.0
+    for srect, size, _t in spans:
+        inter = srect & rect
+        if inter.is_empty:
+            continue
+        area = inter.width * inter.height
+        if area > best_area:
+            best, best_area = size, area
+    return best or max(5.0, min(36.0, rect.height * 0.75)) or default
+
+
+def _text_in_rect(page, rect):
+    try:
+        return page.get_text("text", clip=rect + (-1, -1, 1, 1)) or ""
+    except Exception:
+        return ""
+
+
+def _matches_filter(page, rect, needle, match_case, whole_word):
+    sel = _text_in_rect(page, rect)
+    if not sel:
+        return True
+    if whole_word:
+        flags = 0 if match_case else re.I
+        return re.search(r"\b%s\b" % re.escape(needle), sel, flags) is not None
+    if match_case:
+        return needle in sel
+    return needle.lower() in sel.lower()
+
+
+def search_replace(path, out, find, replace, match_case=False, whole_word=False,
+                   pages=None, progress=None):
+    """Find text and replace it (redact + re-insert). Returns (out, count)."""
+    if not find:
+        raise ValueError("Nothing to search for")
+    doc = fitz.open(path)
+    count = 0
+    targets = range(doc.page_count) if not pages else [i for i in pages if 0 <= i < doc.page_count]
+    total = len(list(targets)) or doc.page_count
+    targets = range(doc.page_count) if not pages else [i for i in pages if 0 <= i < doc.page_count]
+    try:
+        for i in targets:
+            page = doc[i]
+            spans = _page_spans(page)
+            quads = []
+            for q in page.search_for(find, quads=True) or []:
+                r = q.rect
+                if _matches_filter(page, r, find, match_case, whole_word):
+                    quads.append((q, r))
+            if not quads:
+                if progress:
+                    progress(i + 1, doc.page_count)
+                continue
+            for _q, r in quads:
+                page.add_redact_annot(r, fill=(1, 1, 1))
+            stored = []
+            for _q, r in quads:
+                fs = _pick_fontsize(spans, r)
+                stored.append((r, fs))
+            page.apply_redactions()
+            if replace:
+                for r, fs in stored:
+                    box = fitz.Rect(r.x0 - 1, r.y0 - 1.5, r.x1 + 60, r.y1 + 1.5)
+                    size = fs
+                    for _try in range(4):
+                        rc = page.insert_textbox(box, replace, fontsize=size,
+                                                 fontname="helv", color=(0, 0, 0))
+                        if rc >= 0:
+                            break
+                        size *= 0.82
+                count += len(stored)
+            else:
+                count += len(stored)
+            if progress:
+                progress(i + 1, doc.page_count)
+        _save(doc, out, True)
+    finally:
+        doc.close()
+    return out, count
+
+
+def list_form_fields(path):
+    """[{'name','type','value','page'}...] for AcroForm fields."""
+    out = []
+    doc = fitz.open(path)
+    try:
+        for pi, page in enumerate(doc):
+            for w in (page.widgets() or []):
+                try:
+                    out.append({
+                        "name": w.field_name or "",
+                        "type": {
+                            fitz.PDF_WIDGET_TYPE_TEXT: "text",
+                            fitz.PDF_WIDGET_TYPE_CHECKBOX: "checkbox",
+                            fitz.PDF_WIDGET_TYPE_RADIOBUTTON: "radio",
+                            fitz.PDF_WIDGET_TYPE_COMBOBOX: "dropdown",
+                            fitz.PDF_WIDGET_TYPE_LISTBOX: "list",
+                        }.get(w.field_type, "other"),
+                        "value": w.field_value if w.field_value is not None else "",
+                        "page": pi + 1,
+                    })
+                except Exception:
+                    pass
+    finally:
+        doc.close()
+    return out
+
+
+def fill_forms(path, out, values, flatten=True):
+    """values: {field_name: value}. Saves filled (optionally flattened) PDF."""
+    doc = fitz.open(path)
+    try:
+        filled = 0
+        for page in doc:
+            for w in (page.widgets() or []):
+                if w.field_name in values:
+                    try:
+                        w.field_value = values[w.field_name]
+                        w.update()
+                        filled += 1
+                    except Exception:
+                        pass
+        if flatten:
+            try:
+                doc.bake()
+            except Exception:
+                pass
+        _save(doc, out, True)
+    finally:
+        doc.close()
+    return out, filled
+
+
+def typewriter_text(path, out, text, page_index, x_frac, y_frac, fontsize=12,
+                    color=(0, 0, 0)):
+    """Place free text on a page at fractional (x, y) position."""
+    doc = fitz.open(path)
+    try:
+        if page_index < 0 or page_index >= doc.page_count:
+            raise ValueError("Page out of range")
+        page = doc[page_index]
+        pr = page.rect
+        x = x_frac * pr.width
+        y = y_frac * pr.height
+        page.insert_text((x, y), text, fontsize=fontsize, fontname="helv",
+                         color=color)
+        _save(doc, out, True)
+    finally:
+        doc.close()
+    return out
+
+
+def highlight_text(path, out, phrase, color=(1.0, 0.92, 0.2), pages=None,
+                   progress=None):
+    """Highlight every occurrence of a phrase. Returns (out, count)."""
+    if not phrase:
+        raise ValueError("Nothing to highlight")
+    doc = fitz.open(path)
+    count = 0
+    try:
+        targets = range(doc.page_count) if not pages else [i for i in pages if 0 <= i < doc.page_count]
+        for i in targets:
+            page = doc[i]
+            for q in page.search_for(phrase, quads=True) or []:
+                try:
+                    a = page.add_highlight_annot(q)
+                    a.set_colors(stroke=color)
+                    a.update()
+                    count += 1
+                except Exception:
+                    pass
+            if progress:
+                progress(i + 1, doc.page_count)
+        _save(doc, out, True)
+    finally:
+        doc.close()
+    return out, count
+
+
+def redact_areas(path, out, areas, fill=(0, 0, 0)):
+    """True redaction. areas: [(page_index, x0, y0, x1, y1)] as 0..1 fractions."""
+    doc = fitz.open(path)
+    try:
+        by_page = {}
+        for pidx, x0, y0, x1, y1 in areas:
+            by_page.setdefault(int(pidx), []).append((x0, y0, x1, y1))
+        for pidx, rects in by_page.items():
+            if pidx < 0 or pidx >= doc.page_count:
+                continue
+            page = doc[pidx]
+            pr = page.rect
+            for x0, y0, x1, y1 in rects:
+                r = fitz.Rect(x0 * pr.width, y0 * pr.height,
+                              x1 * pr.width, y1 * pr.height).normalize()
+                if r.is_empty:
+                    continue
+                page.add_redact_annot(r, fill=fill)
+            page.apply_redactions()
+        _save(doc, out, True)
+    finally:
+        doc.close()
+    return out
+
+
+def _split_segments(doc, starts):
+    """starts: sorted page indexes where new segments begin (0 included)."""
+    segs = []
+    bounds = sorted(set([0] + [s for s in starts if 0 < s < doc.page_count] + [doc.page_count]))
+    for a, b in zip(bounds, bounds[1:]):
+        if b > a:
+            segs.append((a, b))
+    return segs
+
+
+def split_by_keyword(path, outdir, keyword, match_case=False, progress=None):
+    """New file starts at every page containing the keyword."""
+    os.makedirs(outdir, exist_ok=True)
+    doc = fitz.open(path)
+    outs = []
+    try:
+        starts = []
+        for i in range(doc.page_count):
+            try:
+                txt = doc[i].get_text() or ""
+            except Exception:
+                txt = ""
+            if (keyword in txt) if match_case else (keyword.lower() in txt.lower()):
+                starts.append(i)
+        if not starts:
+            raise ValueError("Keyword not found in any page: %s" % keyword)
+        segs = _split_segments(doc, starts)
+        total = len(segs)
+        for n, (a, b) in enumerate(segs, 1):
+            part = fitz.open()
+            part.insert_pdf(doc, from_page=a, to_page=b - 1)
+            out = _outdir_path(path, outdir, suffix="_part%02d" % n)
+            _save(part, out, True)
+            part.close()
+            outs.append(out)
+            if progress:
+                progress(n, total)
+    finally:
+        doc.close()
+    return outs
+
+
+def _page_is_blank(page):
+    try:
+        if (page.get_text() or "").strip():
+            return False
+        if page.get_images():
+            return False
+        if len(page.get_drawings()) > 4:
+            return False
+    except Exception:
+        return False
+    return True
+
+
+def split_at_blank_pages(path, outdir, keep_blanks=False, progress=None):
+    """Split so each blank page starts a new file (blank pages dropped unless kept)."""
+    os.makedirs(outdir, exist_ok=True)
+    doc = fitz.open(path)
+    outs = []
+    try:
+        segs = []
+        cur = []
+        for i in range(doc.page_count):
+            if _page_is_blank(doc[i]):
+                if cur:
+                    segs.append((cur[0], cur[-1] + 1))
+                    cur = []
+                if keep_blanks:
+                    segs.append((i, i + 1))
+            else:
+                cur.append(i)
+        if cur:
+            segs.append((cur[0], cur[-1] + 1))
+        if len(segs) < 2:
+            raise ValueError("No blank separator pages found (or the whole file is blank)")
+        total = len(segs)
+        for n, (a, b) in enumerate(segs, 1):
+            part = fitz.open()
+            part.insert_pdf(doc, from_page=a, to_page=b - 1)
+            out = _outdir_path(path, outdir, suffix="_doc%02d" % n)
+            _save(part, out, True)
+            part.close()
+            outs.append(out)
+            if progress:
+                progress(n, total)
+    finally:
+        doc.close()
+    return outs
+
+
+def list_attachments(path):
+    """[{'name','size'}] embedded files in the PDF."""
+    out = []
+    doc = fitz.open(path)
+    try:
+        try:
+            names = doc.embfile_names() or []
+        except Exception:
+            names = []
+        for name in names:
+            size = 0
+            try:
+                info = doc.embfile_info(name) or {}
+                size = int(info.get("size") or 0)
+            except Exception:
+                pass
+            out.append({"name": name, "size": size})
+    finally:
+        doc.close()
+    return out
+
+
+def add_attachment(path, out, filepath, name=None):
+    """Attach a file to the PDF (kept inside the document)."""
+    display = name or os.path.basename(filepath)
+    with open(filepath, "rb") as fh:
+        buf = fh.read()
+    doc = fitz.open(path)
+    try:
+        try:
+            doc.embfile_add(display, buf)
+        except TypeError:
+            doc.embfile_add(display, buf, desc="Added by PageDeck")
+        _save(doc, out, True)
+    finally:
+        doc.close()
+    return out
+
+
+def extract_attachments(path, outdir):
+    """Write all embedded files to outdir. Returns list of written paths."""
+    os.makedirs(outdir, exist_ok=True)
+    written = []
+    doc = fitz.open(path)
+    try:
+        try:
+            names = doc.embfile_names() or []
+        except Exception:
+            names = []
+        for name in names:
+            try:
+                buf = doc.embfile_get(name)
+            except Exception:
+                continue
+            safe = os.path.basename(name) or "attachment.bin"
+            dest = os.path.join(outdir, safe)
+            base, ext = os.path.splitext(dest)
+            n = 1
+            while os.path.exists(dest):
+                dest = "%s_%d%s" % (base, n, ext)
+                n += 1
+            with open(dest, "wb") as fh:
+                fh.write(buf)
+            written.append(dest)
+    finally:
+        doc.close()
+    return written
+
+
+# ── OCR (Tesseract) ──
+def tesseract_path():
+    cands = []
+    try:
+        cands.append(shutil.which("tesseract"))
+    except Exception:
+        pass
+    local = os.environ.get("LOCALAPPDATA") or ""
+    pf = os.environ.get("ProgramFiles") or r"C:\Program Files"
+    pfx = os.environ.get("ProgramFiles(x86)") or r"C:\Program Files (x86)"
+    for p in [os.path.join(pf, "Tesseract-OCR", "tesseract.exe"),
+              os.path.join(pfx, "Tesseract-OCR", "tesseract.exe"),
+              os.path.join(local, "Programs", "Tesseract-OCR", "tesseract.exe"),
+              os.path.join(local, "Tesseract-OCR", "tesseract.exe")]:
+        cands.append(p)
+    for c in cands:
+        if c and os.path.isfile(c):
+            return c
+    return None
+
+
+OCR_HELP = ("Tesseract OCR is not installed.\n\n"
+            "Download and install it once from:\n"
+            "https://github.com/UB-Mannheim/tesseract/wiki\n"
+            "(during setup you can tick additional languages like Hindi), then try again.")
+
+
+def ocr_pdf(path, out, lang="eng", dpi=200, mode="pdf", progress=None):
+    """OCR a PDF with Tesseract. mode='pdf' -> searchable PDF, 'txt' -> text file."""
+    exe = tesseract_path()
+    if not exe:
+        raise RuntimeError(OCR_HELP)
+    work = tempfile.mkdtemp(prefix="pdeck_ocr_")
+    doc = fitz.open(path)
+    try:
+        n = doc.page_count
+        flags = _no_window_flags()
+        if mode == "txt":
+            parts = []
+            for i in range(n):
+                png = os.path.join(work, "p%04d.png" % i)
+                doc[i].get_pixmap(dpi=dpi).save(png)
+                base = os.path.join(work, "p%04d" % i)
+                r = subprocess.run([exe, png, base, "-l", lang],
+                                   creationflags=flags, capture_output=True,
+                                   timeout=180)
+                if r.returncode != 0:
+                    raise RuntimeError("Tesseract failed on page %d: %s"
+                                       % (i + 1, (r.stderr or b"").decode("utf-8", "replace")[:300]))
+                with open(base + ".txt", "r", encoding="utf-8", errors="replace") as fh:
+                    parts.append(fh.read())
+                if progress:
+                    progress(i + 1, n)
+            with open(out, "w", encoding="utf-8") as fh:
+                fh.write("\n\n".join(parts))
+            return out
+        page_pdfs = []
+        for i in range(n):
+            png = os.path.join(work, "p%04d.png" % i)
+            doc[i].get_pixmap(dpi=dpi).save(png)
+            base = os.path.join(work, "p%04d" % i)
+            r = subprocess.run([exe, png, base, "-l", lang, "pdf"],
+                               creationflags=flags, capture_output=True,
+                               timeout=180)
+            if r.returncode != 0:
+                raise RuntimeError("Tesseract failed on page %d: %s"
+                                   % (i + 1, (r.stderr or b"").decode("utf-8", "replace")[:300]))
+            page_pdfs.append(base + ".pdf")
+            if progress:
+                progress(i + 1, n)
+        merged = fitz.open()
+        try:
+            for p in page_pdfs:
+                src = fitz.open(p)
+                try:
+                    merged.insert_pdf(src)
+                finally:
+                    src.close()
+            _save(merged, out, True)
+        finally:
+            merged.close()
+        return out
+    finally:
+        doc.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+# ── Office → PDF (LibreOffice) ──
+def soffice_path():
+    cands = []
+    try:
+        cands.append(shutil.which("soffice"))
+    except Exception:
+        pass
+    pf = os.environ.get("ProgramFiles") or r"C:\Program Files"
+    pfx = os.environ.get("ProgramFiles(x86)") or r"C:\Program Files (x86)"
+    for p in [os.path.join(pf, "LibreOffice", "program", "soffice.exe"),
+              os.path.join(pfx, "LibreOffice", "program", "soffice.exe")]:
+        cands.append(p)
+    for c in cands:
+        if c and os.path.isfile(c):
+            return c
+    return None
+
+
+OFFICE_HELP = ("LibreOffice was not found.\n\n"
+               "Install it once (free) from https://www.libreoffice.org/download/ "
+               "and PageDeck will use it to convert Word / Excel / PowerPoint files to PDF.")
+
+
+def office_to_pdf(paths, outdir, timeout=240, progress=None):
+    """Convert Word/Excel/PowerPoint/ODF files to PDF via LibreOffice."""
+    exe = soffice_path()
+    if not exe:
+        raise RuntimeError(OFFICE_HELP)
+    os.makedirs(outdir, exist_ok=True)
+    cmd = [exe, "--headless", "--norestore", "--convert-to", "pdf",
+           "--outdir", outdir] + list(paths)
+    r = subprocess.run(cmd, creationflags=_no_window_flags(),
+                       capture_output=True, timeout=timeout,
+                       cwd=tempfile.gettempdir())
+    outs = []
+    for p in paths:
+        cand = os.path.join(outdir, os.path.splitext(os.path.basename(p))[0] + ".pdf")
+        if os.path.isfile(cand):
+            outs.append(cand)
+    if not outs:
+        raise RuntimeError("LibreOffice could not convert the file(s).\n%s"
+                           % (r.stderr or b"").decode("utf-8", "replace")[:300])
+    if progress:
+        progress(len(outs), len(paths))
     return outs
