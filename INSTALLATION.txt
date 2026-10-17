@@ -3,7 +3,7 @@ PageDeck — Installation Guide
 
 App:     PageDeck (formerly "PDF Suite Pro")
 Creator: AYUSH GUPTA
-Version: v5.1.1
+Version: v5.1.2
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
 
@@ -32,7 +32,6 @@ PageDeck updates itself:
   - Preferences: menu  Help → Update settings…
       * Check for updates at startup          (on by default)
       * Download new versions automatically   (on by default)
-      * GitHub access token — only needed if you run a private fork
 
 Note: the update system uses GitHub Releases of this repository.
 Only install releases published there by the project author.

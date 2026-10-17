@@ -2,13 +2,21 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v5.1.1 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
+**Version:** v5.1.2 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
 
 PageDeck (formerly *PDF Suite Pro*) is a full-featured PDF & image toolkit for
 **Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI. Merge, edit, sign, redact,
 compress, convert, clean up scans — plus a full **Image editor suite** and an
 **Automation** tab with recipes, watch folders, scheduled runs and a command-line
 companion (`PageDeckCLI.exe`). Portable or installed.
+
+## What's New in v5.1.2
+
+- The update settings window no longer shows a GitHub token box for normal
+  (public-repo) users — only the two toggles remain. A token stored by an
+  older version still appears so it can be reviewed or cleared
+- Updates are now robust against a stale or invalid stored token: checks and
+  downloads automatically retry without it
 
 ## What's New in v5.1.1
 
@@ -24,8 +32,8 @@ companion (`PageDeckCLI.exe`). Portable or installed.
   progress bar. One click (*Restart & Install*) applies it. Toggle under
   **Help → Update settings…**
 - **No token needed any more** — the repository is now **public**, so update
-  checks and downloads work out of the box on every PC. The token field stays
-  only for people running a private fork.
+  checks and downloads work out of the box on every PC. The token field is
+  hidden for everyone now (it only re-appears if a token was ever stored)
 - Fixed the release download for public repositories (it previously expected a
   token and would have saved the wrong file).
 
@@ -279,10 +287,10 @@ Output: `PageDeck_Installer.exe`
 4. Installed copies of the app find the release on their next startup check and offer
    to download and install it (or check manually via **Help → Check for Updates**).
 
-The repository is public, so users need no token. If you ever make a fork
-private, users can add a GitHub access token under **Help → Update settings…**
-(create one at github.com → Settings → Developer settings → Personal access
-tokens, `repo` scope). It is stored only on that computer.
+The repository is public, so users need no token and the update window shows
+no token box. If you ever fork it as a private repo, a token can be stored in
+the app's settings file (`%APPDATA%\PageDeck\settings.json`) — the update
+window only shows a token box when one is already stored.
 
 ## Project Structure
 

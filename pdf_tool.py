@@ -59,7 +59,7 @@ def check_windows_version():
 check_windows_version()
 
 APP_NAME = "PageDeck"
-APP_VERSION = "5.1.1"
+APP_VERSION = "5.1.2"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
 OLD_SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / "PDF Suite Pro"
 
@@ -112,15 +112,27 @@ def version_tuple(v):
 def fetch_latest_release(token=None):
     """Return the latest GitHub release dict (raises on network/API errors).
 
-    A token is required when the repository is private.
+    Works with no token at all (the repository is public). If a token was
+    stored by an older version and is no longer valid, the request is
+    retried anonymously so update checks keep working.
     """
-    headers = {"User-Agent": "PageDeck-%s" % APP_VERSION,
-               "Accept": "application/vnd.github+json"}
+    def _get(tok):
+        headers = {"User-Agent": "PageDeck-%s" % APP_VERSION,
+                   "Accept": "application/vnd.github+json"}
+        if tok:
+            headers["Authorization"] = "Bearer " + tok
+        req = urllib.request.Request(UPDATE_API, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8", "replace"))
+
     if token:
-        headers["Authorization"] = "Bearer " + token
-    req = urllib.request.Request(UPDATE_API, headers=headers)
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        return json.loads(resp.read().decode("utf-8", "replace"))
+        try:
+            return _get(token)
+        except urllib.error.HTTPError as e:
+            if e.code not in (401, 403, 404):
+                raise
+            return _get(None)      # stale token: fall back to anonymous
+    return _get(None)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -137,24 +149,36 @@ def open_update_stream(url, token=None):
 
     Public repositories need no token: always request the binary
     (Accept: application/octet-stream), otherwise the GitHub API would
-    return the asset's JSON metadata instead of the file itself.
+    return the asset's JSON metadata instead of the file itself. A stale
+    token is ignored - the download is retried anonymously.
     """
     base = {"User-Agent": "PageDeck-%s" % APP_VERSION}
-    headers = dict(base)
-    headers["Accept"] = "application/octet-stream"
+
+    def _open(tok):
+        headers = dict(base)
+        headers["Accept"] = "application/octet-stream"
+        if tok:
+            headers["Authorization"] = "Bearer " + tok
+        req = urllib.request.Request(url, headers=headers)
+        opener = urllib.request.build_opener(_NoRedirect)
+        try:
+            return opener.open(req, timeout=30)
+        except urllib.error.HTTPError as e:
+            if e.code in (301, 302, 303, 307, 308):
+                loc = e.headers.get("Location") or ""
+                if loc:
+                    return urllib.request.urlopen(
+                        urllib.request.Request(loc, headers=base), timeout=30)
+            raise
+
     if token:
-        headers["Authorization"] = "Bearer " + token
-    req = urllib.request.Request(url, headers=headers)
-    opener = urllib.request.build_opener(_NoRedirect)
-    try:
-        return opener.open(req, timeout=30)
-    except urllib.error.HTTPError as e:
-        if e.code in (301, 302, 303, 307, 308):
-            loc = e.headers.get("Location") or ""
-            if loc:
-                return urllib.request.urlopen(
-                    urllib.request.Request(loc, headers=base), timeout=30)
-        raise
+        try:
+            return _open(token)
+        except urllib.error.HTTPError as e:
+            if e.code not in (401, 403, 404):
+                raise
+            return _open(None)
+    return _open(None)
 
 # ─── Modern dark theme (2026 design) ───
 THEME = {
@@ -824,8 +848,8 @@ class PageDeck:
                 if res.get("need_token"):
                     messagebox.showinfo("Check for updates",
                         "No releases were found.\n\nIf you are running a "
-                        "private fork of PageDeck, add a GitHub access token "
-                        "via:\nHelp → Update settings…")
+                        "private fork of PageDeck, an update token can be "
+                        "stored in the app's settings file:\n%s" % SETTINGS_FILE)
                 else:
                     messagebox.showinfo("Check for updates",
                         "No releases have been published yet on GitHub.")
@@ -851,24 +875,32 @@ class PageDeck:
         self._update_dlg = UpdateDialog(self.root, self, data, latest, auto=auto)
 
     def update_settings(self):
-        """Configure update checks and the optional token (private forks)."""
+        """Configure update checks.
+
+        PageDeck ships from a public repository, so update checks and
+        downloads need no token and none is shown. A token box appears
+        only when a token was stored by an older version, so it can be
+        reviewed or cleared.
+        """
         s = self.settings or {}
-        dlg = SimpleFormDialog(self.root, "Update settings",
-            [("auto", "Check for updates at startup", "check",
-              bool(s.get("auto_update_check", True))),
-             ("download", "Download new versions automatically", "check",
-              bool(s.get("auto_download", True))),
-             ("token", "GitHub access token (only needed for private forks)", "text",
-              s.get("github_token", ""))],
+        rows = [("auto", "Check for updates at startup", "check",
+                 bool(s.get("auto_update_check", True))),
+                ("download", "Download new versions automatically", "check",
+                 bool(s.get("auto_download", True)))]
+        had_token = bool(str(s.get("github_token") or "").strip())
+        if had_token:
+            rows.append(("token",
+                         "GitHub token (stored earlier - only used for private forks)",
+                         "text", s.get("github_token", "")))
+        dlg = SimpleFormDialog(self.root, "Update settings", rows,
             intro="PageDeck is distributed from a public GitHub repository, so "
-                  "update checks and downloads work without a token. A token is "
-                  "only needed if you host a private fork. It is stored only on "
-                  "this computer.")
+                  "update checks and downloads need no account or token.")
         if dlg.result is None:
             return
-        self.settings["github_token"] = str(dlg.result.get("token", "")).strip()
         self.settings["auto_update_check"] = bool(dlg.result.get("auto"))
         self.settings["auto_download"] = bool(dlg.result.get("download"))
+        if had_token:
+            self.settings["github_token"] = str(dlg.result.get("token", "")).strip()
         save_settings(self.settings)
         messagebox.showinfo("Update settings", "Saved.")
 
