@@ -7,7 +7,7 @@
 
 ; Application info
 !define APP_NAME "PageDeck"
-!define APP_VERSION "5.1.2"
+!define APP_VERSION "5.1.3"
 !define APP_PUBLISHER "AYUSH GUPTA"
 !define APP_URL "https://github.com/learnerarchitecture-debug/PDFMERGER"
 !define APP_EXE "PageDeck.exe"

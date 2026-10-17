@@ -59,7 +59,7 @@ def check_windows_version():
 check_windows_version()
 
 APP_NAME = "PageDeck"
-APP_VERSION = "5.1.2"
+APP_VERSION = "5.1.3"
 SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / APP_NAME
 OLD_SETTINGS_DIR = Path(os.environ.get("APPDATA", ".")) / "PDF Suite Pro"
 
@@ -5566,18 +5566,26 @@ class UpdateDialog(ctk.CTkToplevel):
         if not messagebox.askyesno("Ready to install",
                 "PageDeck v%s has been downloaded.\n\n"
                 "Run the setup now? The application will close so the files "
-                "can be updated." % self.latest, parent=self):
+                "can be updated.\n\n"
+                "Windows will ask for your permission before the setup runs."
+                % self.latest, parent=self):
             self.status.configure(text="Installer saved to: %s" % path)
             return
         try:
-            subprocess.Popen([path])
-        except Exception as e:
+            # os.startfile goes through ShellExecute, which can raise the
+            # Windows UAC elevation prompt the setup needs. subprocess/Popen
+            # uses CreateProcess and fails with WinError 740 ("requires
+            # elevation") for admin-requiring installers.
+            os.startfile(path)
+        except OSError as e:
             messagebox.showerror("Update",
-                "Could not start the installer:\n%s" % e, parent=self)
+                "Could not start the installer:\n%s\n\n"
+                "You can run the downloaded setup manually:\n%s" % (e, path),
+                parent=self)
             return
         self._closed()
         self.destroy()
-        self.app.root.after(800, self.app.root.destroy)
+        self.app.root.after(1000, self.app.root.destroy)
 
 
 # ═══════════════════════ ENTRY ═══════════════════════

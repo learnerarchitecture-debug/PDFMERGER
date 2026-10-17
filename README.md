@@ -2,13 +2,20 @@
 
 **Creator:** AYUSH GUPTA  
 **Repository:** https://github.com/learnerarchitecture-debug/PDFMERGER  
-**Version:** v5.1.2 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
+**Version:** v5.1.3 — auto-updates, no token needed (public repo) · 100+ tools in 6 tabs
 
 PageDeck (formerly *PDF Suite Pro*) is a full-featured PDF & image toolkit for
 **Windows 7, 8, 8.1, 10 and 11** with a sleek dark UI. Merge, edit, sign, redact,
 compress, convert, clean up scans — plus a full **Image editor suite** and an
 **Automation** tab with recipes, watch folders, scheduled runs and a command-line
 companion (`PageDeckCLI.exe`). Portable or installed.
+
+## What's New in v5.1.3
+
+- Fixed the auto-update install step: starting the downloaded setup from the
+  app could fail with **"WinError 740 — the requested operation requires
+  elevation"**. The app now launches it through the Windows shell, so the
+  normal permission prompt appears and the setup can run
 
 ## What's New in v5.1.2
 
@@ -91,7 +98,8 @@ when finished.
 **Updating:** PageDeck checks GitHub for new versions automatically at startup
 (the repository is public, so no configuration or token is needed). When a new
 version exists, the app downloads the installer for you and asks one question —
-*Restart & Install* — then it closes and the setup updates it. Manual check:
+*Restart & Install* — then it closes and the setup updates it (Windows asks
+for your permission first — allow it). Manual check:
 **Help → Check for Updates** or the button on the Home tab. Downloads can be
 turned off under **Help → Update settings…**.
 

@@ -3,7 +3,7 @@ PageDeck — Installation Guide
 
 App:     PageDeck (formerly "PDF Suite Pro")
 Creator: AYUSH GUPTA
-Version: v5.1.2
+Version: v5.1.3
 Repo:    https://github.com/learnerarchitecture-debug/PDFMERGER
 
 
@@ -26,7 +26,8 @@ PageDeck updates itself:
     The repository is public — no token or configuration needed.
   - If one exists, the app downloads the installer automatically
     (release notes + progress bar are shown) and asks one question:
-    "Restart & Install". PageDeck closes while the setup updates it.
+    "Restart & Install". PageDeck closes, then Windows shows a
+    permission prompt (UAC) - allow it, and the setup updates the app.
   - Manual check: menu  Help → Check for Updates,
     or the "Check for updates" button on the Home tab.
   - Preferences: menu  Help → Update settings…
